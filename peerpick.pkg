@@ -1,0 +1,35 @@
+v 3
+d peerpick: choose a comparison group for one unit and check how much the choice matters
+d
+d peerpick builds a comparison group (peers) for one county, district,
+d college, region, or state from a dataset of candidates: nearest
+d neighbours by Mahalanobis or standardized Euclidean distance, coarsened
+d cells, typology cells, propensity scores, predicted values, k-means
+d clusters, entropy balancing, a hand-picked list, trajectory distance on
+d a panel, or synthetic-control weights.  Every method leaves the same
+d things behind: a flag, a weight, a distance, a rank, a balance table,
+d and the gap on an outcome with an interval.
+d
+d Three subcommands replay the call to check the choice: a specification
+d curve over k, distance, factors, and strata; placebo gaps with every
+d unit as the focal; and leave-one-out stability over comparison units
+d and factors.
+d
+d Base Stata and Mata, no dependencies.  Example data: Texas counties
+d (ACS, PLACES, RUCC), a SAIPE county poverty panel, and a FRED state
+d panel.
+d
+d Requires: Stata version 16
+d
+d Author: Eric Booth
+d Support: email eric.a.booth@gmail.com
+d
+d Distribution-Date: 20261020
+f src/peerpick.ado
+f src/peerpick.sthlp
+f data/tx_counties.dta
+f data/tx_county_panel.dta
+f data/us_states.dta
+f examples/peerpick_examples.do
+f tests/test01_methods.do
+f tests/test02_panel_subcommands.do

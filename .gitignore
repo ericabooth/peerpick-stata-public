@@ -1,0 +1,6 @@
+tests/*.log
+tests/*.png
+tests/*.gph
+examples/*.log
+examples/*.gph
+.DS_Store

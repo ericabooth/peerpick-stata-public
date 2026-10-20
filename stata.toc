@@ -1,0 +1,4 @@
+v 3
+d peerpick: choose a comparison group for one unit and check how much the choice matters
+d Eric Booth
+p peerpick
