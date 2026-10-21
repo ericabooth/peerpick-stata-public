@@ -19,6 +19,10 @@ First release.
   squares with a sum-to-one constraint; entropy balancing by Newton's method
   on the dual, reporting the remaining imbalance when the focal unit lies
   outside the convex hull.
+- `simulator/peer_simulator.html`: an offline, single-file companion page
+  for making the same three choices by hand (unit, question, method) and
+  watching the group, the gap, the balance, and the sensitivity change.
+  Template, data, fonts, and build script included.
 - Test battery on real data: Texas counties (ACS 2019-23, PLACES 2023,
   RUCC 2023), the SAIPE county poverty panel 2005-2023, and FRED state
   unemployment, income, and population 2000-2024.

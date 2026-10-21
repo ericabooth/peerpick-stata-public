@@ -14,6 +14,7 @@
 {viewerjumpto "What peerpick leaves behind" "peerpick##output"}{...}
 {viewerjumpto "Checking the choice" "peerpick##checks"}{...}
 {viewerjumpto "Examples" "peerpick##examples"}{...}
+{viewerjumpto "The simulator" "peerpick##simulator"}{...}
 {viewerjumpto "Limitations" "peerpick##limits"}{...}
 {viewerjumpto "Stored results" "peerpick##results"}{...}
 {viewerjumpto "References" "peerpick##refs"}{...}
@@ -133,11 +134,12 @@ alone). The dataset has one row per unit, or one row per unit and period when
 {title:Description}
 
 {pstd}
-Saying how a county, a school district, a college, a region, or a state is
-doing usually means comparing it with a group. {cmd:peerpick} builds that group
-from a dataset of candidate units, reports how well the group resembles the
-focal unit on the factors you chose, reports the gap on an outcome, and then
-lets you test whether the gap depends on the choices you made along the way.{p_end}
+Saying how a county, a city, a school, a hospital, a firm, a region, or a
+country is doing usually means comparing it with a group. {cmd:peerpick} builds
+that group from a dataset of candidate units of any kind, reports how well the
+group resembles the focal unit on the factors you chose, reports the gap on an
+outcome, and then lets you test whether the gap depends on the choices you made
+along the way.{p_end}
 
 {pstd}
 Every method takes the same inputs (an id, a focal unit, factors, an optional
@@ -150,12 +152,12 @@ can switch the method and keep the rest of your do-file.{p_end}
 {title:Three choices}
 
 {pstd}
-Three decisions sit between "compare Webb County" and a number in a report,
-and {cmd:peerpick} keeps them separate so each can be stated and defended.{p_end}
+Three decisions separate "compare this unit" from a number in a report, and
+{cmd:peerpick} keeps them apart so each can be stated and defended.{p_end}
 
 {phang}{bf:The pool}: which units are candidates at all. Use {ifin} to restrict
 the dataset and {opt strata()} to require an exact match on a few variables
-(metro status, a border flag, a sector, a Carnegie class). A stratum is a
+(metro status, a sector, a size class, an ownership type). A stratum is a
 strong statement: no unit outside it can be a peer, however similar.{p_end}
 
 {phang}{bf:The factors}: the variables on which "similar" is measured. These
@@ -190,8 +192,8 @@ has few close matches on those factors at that resolution.{p_end}
 {pstd}
 {bf:typology}. The comparison group is the cell of {opt strata()}: every unit
 with the same type. Give factors as well and {it:k} nearest within the cell are
-kept. This is the dashboard convention (all rural border counties, all large
-urban districts).{p_end}
+kept. This is the convention of dashboards and league tables (all rural
+counties, all large urban districts, all teaching hospitals).{p_end}
 
 {pstd}
 {bf:pscore}. A logit of {opt group()} on the factors gives each unit an index
@@ -199,7 +201,8 @@ of how much it looks like the focal unit's group; the {it:k} units in group 0
 nearest the focal unit on that index are the comparison group. Use it when the
 focal unit belongs to a category (border counties, charter districts) and the
 question is "what do units that look like they could be in this category, but
-are not, do?".{p_end}
+are not, do?". The category can be anything recorded as 0/1: border counties,
+charter schools, firms that export, cities with a transit system.{p_end}
 
 {pstd}
 {bf:predicted}. Regress {opt outcome()} on the factors over the pool; the
@@ -488,10 +491,32 @@ FRED, 2000-2024.{p_end}
 {phang2}{cmd:. peerpick placebo, graph}{p_end}
 {phang2}{cmd:. peerpick stability}{p_end}
 
+{pstd}{bf:Loop over many focal units and collect the groups}{p_end}
+{phang2}{cmd:. levelsof fips5 if metro == 1, local(units) clean}{p_end}
+{phang2}{cmd:. foreach u of local units {c -(}}{p_end}
+{phang2}{cmd:.     peerpick pov lpop hisp medage, id(fips5) focal(`u') strata(metro) k(10) outcome(unins) nodisplay replace}{p_end}
+{phang2}{cmd:.     display "`u': gap " %5.2f r(gap) "  peers " r(peers)}{p_end}
+{phang2}{cmd:. {c )-}}{p_end}
+
 {pstd}{bf:Keep the group and merge it onto another file}{p_end}
 {phang2}{cmd:. keep if inlist(pp_peer, 1, 2)}{p_end}
 {phang2}{cmd:. keep fips5 county_name pp_peer pp_w pp_dist pp_rank}{p_end}
 {phang2}{cmd:. save build/peers_webb_uninsured, replace}{p_end}
+
+
+{marker simulator}{...}
+{title:The simulator}
+
+{pstd}
+A companion page, {cmd:simulator/peer_simulator.html}, lets you make the same
+three choices by hand and watch the result: pick a unit type, a question, and a
+method, then move the settings (focal unit, factors, k, strata, caliper) and see
+the comparison group, the gap, the balance, and the sensitivity change, with
+notes and references that follow the settings. Counties use the real data
+shipped here; the other unit types are simulated for teaching. It is one file
+with no server and no internet connection needed: {cmd:net get peerpick} fetches
+it, or open it online at
+{browse "https://ericabooth.github.io/peerpick-stata-public/simulator/peer_simulator.html"}.{p_end}
 
 
 {marker limits}{...}
@@ -572,24 +597,33 @@ dropped factor), {cmd:r(gap_base)}.{p_end}
 {phang}Abadie, A., A. Diamond, and J. Hainmueller. 2010. Synthetic control
 methods for comparative case studies: Estimating the effect of California's
 tobacco control program. {it:Journal of the American Statistical Association}
-105: 493-505.{p_end}
+105: 493-505. {browse "https://doi.org/10.1198/jasa.2009.ap08746":doi:10.1198/jasa.2009.ap08746}{p_end}
 
 {phang}Hainmueller, J. 2012. Entropy balancing for causal effects: A
 multivariate reweighting method to produce balanced samples in observational
-studies. {it:Political Analysis} 20: 25-46.{p_end}
+studies. {it:Political Analysis} 20: 25-46.
+{browse "https://doi.org/10.1093/pan/mpr025":doi:10.1093/pan/mpr025}{p_end}
 
 {phang}Iacus, S. M., G. King, and G. Porro. 2012. Causal inference without
-balance checking: Coarsened exact matching. {it:Political Analysis} 20: 1-24.{p_end}
+balance checking: Coarsened exact matching. {it:Political Analysis} 20: 1-24.
+{browse "https://doi.org/10.1093/pan/mpr013":doi:10.1093/pan/mpr013}{p_end}
 
 {phang}Lawson, C. L., and R. J. Hanson. 1974. {it:Solving Least Squares
-Problems}. Englewood Cliffs, NJ: Prentice-Hall.{p_end}
+Problems}. Englewood Cliffs, NJ: Prentice-Hall. Reprinted 1995, Philadelphia:
+SIAM. {browse "https://doi.org/10.1137/1.9781611971217":doi:10.1137/1.9781611971217}{p_end}
 
 {phang}Rosenbaum, P. R., and D. B. Rubin. 1985. Constructing a control group
 using multivariate matched sampling methods that incorporate the propensity
-score. {it:The American Statistician} 39: 33-38.{p_end}
+score. {it:The American Statistician} 39: 33-38.
+{browse "https://doi.org/10.1080/00031305.1985.10479383":doi:10.1080/00031305.1985.10479383}{p_end}
 
 {phang}Simonsohn, U., J. P. Simmons, and L. D. Nelson. 2020. Specification
-curve analysis. {it:Nature Human Behaviour} 4: 1208-1214.{p_end}
+curve analysis. {it:Nature Human Behaviour} 4: 1208-1214.
+{browse "https://doi.org/10.1038/s41562-020-0912-z":doi:10.1038/s41562-020-0912-z}{p_end}
+
+{phang}Stuart, E. A. 2010. Matching methods for causal inference: A review and
+a look forward. {it:Statistical Science} 25: 1-21.
+{browse "https://doi.org/10.1214/09-STS313":doi:10.1214/09-STS313}{p_end}
 
 
 {marker author}{...}

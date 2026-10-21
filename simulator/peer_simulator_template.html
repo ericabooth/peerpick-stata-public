@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Peer Comparison Simulator</title>
+<style>
+/*__FONTS__*/
+:root {
+  --navy:#001D3D; --blue:#0C55A5; --coral:#F26852; --coral-mark:#E4573A; --gold:#FFC300; --gold-mark:#C98F00;
+  --cream:#F3F3EC; --cream2:#E9E9DE; --ink:#1F2733; --gray:#61686E; --line:#D9DCE1; --pool:#C3C8CF; --bg:#FFFFFF;
+  --ok:#2E7D4F; --warn:#B7791F; --bad:#B3261E;
+}
+* { box-sizing:border-box; }
+html, body { margin:0; background:var(--bg); color:var(--ink); font-family:'Open Sans', 'Segoe UI', Helvetica, Arial, sans-serif; font-size:15px; line-height:1.45; }
+h1, h2, h3 { font-family:'EB Garamond', Georgia, 'Times New Roman', serif; font-weight:600; color:var(--navy); margin:0; letter-spacing:0.1px; }
+h1 { font-size:32px; } h2 { font-size:24px; } h3 { font-size:18px; }
+a { color:var(--blue); }
+button { font-family:inherit; font-size:14px; cursor:pointer; }
+.topbar { background:var(--navy); color:#fff; padding:14px 28px; display:flex; align-items:baseline; gap:18px; flex-wrap:wrap; }
+.topbar h1 { color:#fff; font-size:26px; }
+.topbar .brand { margin-left:auto; font-family:'EB Garamond', Georgia, serif; font-weight:600; font-size:18px; color:#fff; }
+.topbar .brand small { font-family:'Open Sans', sans-serif; font-weight:400; font-size:12px; color:#C9D3E3; margin-left:8px; }
+.wrap { max-width:1380px; margin:0 auto; padding:22px 28px 60px; }
+.lede { font-size:16px; max-width:900px; margin:6px 0 18px; }
+.lede b { color:var(--navy); }
+/* ---------- landing ---------- */
+.step { margin:26px 0 8px; }
+.step-head { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+.badge { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; background:var(--coral); color:#fff; font-weight:600; font-size:15px; flex:0 0 30px; }
+.step-help { color:var(--gray); font-size:14px; }
+.cards { display:grid; gap:12px; }
+.cards.c3 { grid-template-columns:repeat(3, 1fr); }
+.cards.c4 { grid-template-columns:repeat(12, 1fr); }
+.cards.c4 > .card { grid-column:span 3; }
+.cards.c4 > .card:nth-child(4n+1):nth-last-child(3), .cards.c4 > .card:nth-child(4n+1):nth-last-child(3) ~ .card { grid-column:span 4; }
+@media (max-width:900px) { .cards.c3, .cards.c4 { grid-template-columns:repeat(2, 1fr); } .cards.c4 > .card, .cards.c4 > .card:nth-child(4n+1):nth-last-child(3), .cards.c4 > .card:nth-child(4n+1):nth-last-child(3) ~ .card { grid-column:auto; } }
+.card { border:2px solid var(--line); border-radius:10px; padding:14px 16px 12px; background:#fff; cursor:pointer; transition:border-color .15s, box-shadow .15s; position:relative; min-height:104px; display:flex; flex-direction:column; }
+.card p { flex:1; }
+.card:hover { border-color:var(--blue); box-shadow:0 2px 10px rgba(0,29,61,.08); }
+.card.selected { border-color:var(--coral); background:#FFF6F3; }
+.card.disabled { opacity:.38; cursor:not-allowed; }
+.card h3 { font-size:17px; margin-bottom:4px; }
+.card p { margin:0; font-size:13px; color:var(--gray); }
+.card .rec { position:absolute; top:-10px; right:10px; background:var(--gold); color:var(--navy); font-size:11px; font-weight:600; padding:2px 8px; border-radius:10px; }
+.card .tag { display:inline-block; font-size:11px; color:var(--gray); margin-top:8px; }
+.choices-bar { position:sticky; top:0; z-index:5; background:var(--cream); border-bottom:1px solid var(--line); padding:10px max(28px, calc(50vw - 662px)); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.chip { background:#fff; border:1px solid var(--line); border-radius:16px; padding:4px 12px; font-size:13px; }
+.chip b { color:var(--navy); }
+.chip.empty { color:var(--gray); border-style:dashed; }
+.btn { background:var(--blue); color:#fff; border:0; border-radius:8px; padding:10px 18px; font-weight:600; font-size:15px; }
+.btn:disabled { background:#9FB2C9; cursor:not-allowed; }
+.btn.secondary { background:#fff; color:var(--navy); border:2px solid var(--navy); padding:8px 14px; }
+.btn.small { padding:6px 12px; font-size:13px; }
+.btn.coral { background:var(--coral-mark); }
+/* ---------- simulator ---------- */
+#sim { display:none; }
+.sim-grid { display:grid; grid-template-columns:300px 1fr 300px; gap:18px; align-items:start; }
+@media (max-width:1180px) { .sim-grid { grid-template-columns:280px 1fr; } .notes { grid-column:1 / -1; } }
+@media (max-width:820px) { .sim-grid { grid-template-columns:1fr; } }
+.panel { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+.panel h3 { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.ctl { margin:10px 0 12px; }
+.ctl label { display:block; font-weight:600; font-size:13px; color:var(--navy); margin-bottom:4px; }
+.ctl label[data-tip] { text-decoration:underline dotted; text-underline-offset:3px; cursor:help; }
+.ctl select, .ctl input[type=text] { width:100%; padding:7px 8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px; background:#fff; }
+.ctl input[type=range] { width:100%; margin:4px 0; accent-color:var(--blue); }
+.ctl .val { float:right; font-weight:600; color:var(--blue); }
+.checks { display:flex; flex-direction:column; gap:4px; }
+.checks label { display:flex; align-items:center; gap:8px; font-weight:400; font-size:14px; color:var(--ink); cursor:pointer; }
+.checks label.trap { color:var(--bad); }
+.checks input { accent-color:var(--blue); width:16px; height:16px; }
+.toggle { display:inline-flex; flex-wrap:wrap; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+.toggle button { border:0; background:#fff; padding:6px 10px; font-size:13px; color:var(--ink); white-space:nowrap; flex:1 1 auto; }
+.toggle button.on { background:var(--navy); color:#fff; }
+.charts { display:grid; grid-template-columns:1fr; gap:16px; }
+.chart { background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px 10px; }
+.chart.wide { grid-column:1 / -1; }
+.chart h3 { font-size:17px; }
+.chart .q { font-size:13px; color:var(--gray); margin:0 0 6px; }
+.chart .q b { color:var(--navy); }
+.chart svg { width:100%; height:auto; display:block; }
+.legend { display:flex; flex-wrap:wrap; gap:10px 16px; font-size:12.5px; color:var(--gray); margin:6px 0 2px; }
+.legend span::before { content:""; display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:5px; vertical-align:-1px; background:var(--c, var(--pool)); }
+.legend .focal::before { background:var(--coral-mark); border-radius:2px; }
+.legend .peer::before { background:var(--blue); }
+.legend .pool::before { background:var(--pool); }
+.legend .gold::before { background:var(--gold-mark); }
+.legend .navy::before { background:var(--navy); }
+.legend .line::before { width:16px; height:3px; border-radius:2px; background:var(--navy); vertical-align:2px; }
+.howto { display:none; background:var(--cream); border-left:3px solid var(--gold); padding:8px 10px; font-size:13px; margin-top:8px; border-radius:0 6px 6px 0; }
+.chart.open .howto { display:block; }
+.chart h3 .how { margin-left:auto; font-family:'Open Sans', sans-serif; font-weight:400; font-size:12px; color:var(--blue); cursor:pointer; white-space:nowrap; border:1px solid var(--line); border-radius:12px; padding:2px 9px; }
+.chart h3 .how:hover { background:var(--cream); }
+.adv { margin:12px 0 4px; }
+.power { margin-top:8px; }
+.adv summary, .power summary { font-weight:600; font-size:13px; color:var(--blue); cursor:pointer; list-style:none; }
+.adv summary::before, .power summary::before { content:"▸ "; }
+.adv[open] summary::before, .power[open] summary::before { content:"▾ "; }
+.power table { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+.power td { padding:5px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+.power td:last-child { text-align:right; font-weight:600; color:var(--navy); white-space:nowrap; }
+.power td abbr { text-decoration:underline dotted; cursor:help; }
+.power select { font-family:inherit; font-size:13px; padding:2px 4px; }
+.ci { font-size:13px; color:var(--gray); margin:-4px 0 8px; }
+.ci b { color:var(--navy); }
+.howto b { color:var(--navy); }
+.big { display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start; margin:4px 0 10px; }
+.big .num { font-family:'EB Garamond', Georgia, serif; font-size:38px; line-height:1; color:var(--navy); font-weight:600; }
+.big .num.coral { color:var(--coral-mark); }
+.big .lab { font-size:12px; color:var(--gray); text-transform:uppercase; letter-spacing:.4px; }
+.big .lab sub { line-height:0; }
+.notes .card-note { border-left:4px solid var(--blue); background:#F7F9FC; padding:8px 10px; margin:8px 0; border-radius:0 8px 8px 0; font-size:13.5px; }
+.notes .card-note.caveat { border-color:var(--gold-mark); background:#FFF8E5; }
+.notes .card-note.warn { border-color:var(--bad); background:#FDF1F0; }
+.notes .card-note b { display:block; color:var(--navy); margin-bottom:2px; }
+.notes .card-note .ref { color:var(--blue); font-size:12px; }
+.refs { font-size:12px; color:var(--gray); margin-top:14px; }
+.refs li { margin-bottom:3px; }
+.pins table { width:100%; border-collapse:collapse; font-size:13px; }
+.pins th { text-align:left; background:var(--navy); color:#fff; padding:6px 8px; font-weight:600; }
+.pins td { padding:6px 8px; border-bottom:1px solid var(--line); }
+.pins tr:nth-child(even) td { background:var(--cream); }
+.tip { position:fixed; pointer-events:none; background:var(--navy); color:#fff; padding:6px 9px; border-radius:6px; font-size:12.5px; display:none; z-index:50; max-width:260px; box-shadow:0 3px 12px rgba(0,0,0,.2); }
+svg text { font-family:'Open Sans', sans-serif; }
+.axis text { fill:var(--gray); font-size:11.5px; }
+.axis line, .axis path { stroke:var(--line); }
+.grid line { stroke:#EEF0F3; }
+.lbl { font-size:12px; fill:var(--gray); }
+.ann { font-size:12.5px; fill:var(--navy); font-weight:600; paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round; }
+.mark { cursor:pointer; }
+.mark:hover { stroke:var(--navy); stroke-width:2; }
+table.cells { border-collapse:separate; border-spacing:4px; width:100%; font-size:13px; }
+table.cells td { text-align:center; padding:10px 4px; border-radius:6px; background:var(--cream2); min-width:48px; }
+table.cells td.focal { background:var(--coral); color:#fff; font-weight:600; }
+table.cells td.thin { color:var(--bad); }
+table.cells th { font-weight:600; color:var(--navy); font-size:12px; padding:4px; }
+.muted { color:var(--gray); font-size:12.5px; }
+.kv { font-size:13px; } .kv b { color:var(--navy); }
+.footer { margin-top:32px; font-size:12px; color:var(--gray); border-top:1px solid var(--line); padding-top:10px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>Peer Comparison Simulator</h1>
+  <span class="brand">peerpick <small>companion</small></span>
+</div>
+
+<div class="choices-bar" id="choicesBar">
+  <span class="chip empty" id="chipUnit">Unit: not chosen</span>
+  <span class="chip empty" id="chipQ">Question: not chosen</span>
+  <span class="chip empty" id="chipM">Method: not chosen</span>
+  <button class="btn" id="openBtn" disabled>Open the simulator →</button>
+  <button class="btn secondary small" id="backBtn" style="display:none">← Change choices</button><span class="muted" id="dataNote" style="margin-left:auto"></span>
+</div>
+
+<div class="wrap" id="landing">
+  <p class="lede">Before you compare anything, you have to say <b>compared to whom</b>. Make the three choices behind that answer, then change the settings and watch the peers and the answer change. Counties use real data; the other units are simulated for teaching.</p>
+
+  <div class="step">
+    <div class="step-head"><span class="badge">1</span><h2>What are you comparing?</h2></div>
+    <div class="cards c3" id="unitCards"></div>
+  </div>
+  <div class="step">
+    <div class="step-head"><span class="badge">2</span><h2>What is the question?</h2><span class="step-help">The methods that fit depend on the question.</span></div>
+    <div class="cards c4" id="qCards"></div>
+  </div>
+  <div class="step">
+    <div class="step-head"><span class="badge">3</span><h2>How should the peers be picked?</h2><span class="step-help">Greyed out: does not fit the choices above. Gold tag: the suggested default.</span></div>
+    <div class="cards c4" id="mCards"></div>
+  </div>
+</div>
+
+<div class="wrap" id="sim">
+  <div class="sim-grid">
+    <div class="panel controls" id="controls"></div>
+    <div>
+      <div class="charts" id="charts"></div>
+      <div class="panel pins" id="pins" style="margin-top:16px; display:none">
+        <h3>Pinned setups <span class="muted">(change something, pin again, compare)</span></h3>
+        <div id="pinTable" class="muted"></div>
+      </div>
+    </div>
+    <div class="panel notes" id="notes"></div>
+  </div>
+  <div class="footer">Companion to the peerpick Stata package (github.com/ericabooth/peerpick-stata-public). County data: American Community Survey (ACS) 2019–23, CDC PLACES 2023, USDA rural-urban continuum codes (RUCC) 2023, pulled 2026-10-19. Other units are simulated with a fixed seed. Self-contained; runs offline.</div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+// =====================================================================================
+// DATA
+// =====================================================================================
+const COUNTIES = /*__COUNTY_DATA__*/;
+
+// ---- seeded random ------------------------------------------------------------------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+let R = mulberry32(2036);
+function rnorm(m=0,s=1){let u=R()||1e-9,v=R();return m+s*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function clamp(x,a,b){return Math.max(a,Math.min(b,x));}
+const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+const sd=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/Math.max(1,a.length-1));};
+const fmt=(x,d=1)=>{ if(x==null||isNaN(x)) return '–'; const s=x.toFixed(d); return /^-0(\.0+)?$/.test(s)?s.slice(1):s; };
+const STATES=["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"];
+const SF11=["California","Colorado","Florida","Georgia","Illinois","New York","North Carolina","Ohio","Pennsylvania","Virginia","Washington"];
+const BIG=["California","Texas","Florida","New York","Pennsylvania","Illinois","Ohio","Georgia","North Carolina","Michigan"];
+
+// ---- unit definitions ---------------------------------------------------------------
+// factors: {key, label, trap?}   outcome: {key, label, unit}
+const UNITS = {
+  county: { name:"Counties", blurb:"254 counties. Outcome: uninsured adults 18–64.", real:true,
+    outcome:{key:"unins", label:"Uninsured adults 18–64 (%)"},
+    factors:[{key:"lpop",label:"Population (log)"},{key:"pov",label:"Poverty rate (%)"},{key:"hisp",label:"Hispanic share (%)"},{key:"medage",label:"Median age"},{key:"pct65",label:"Age 65+ share (%)"},{key:"bach",label:"Bachelor's or higher (%)"},{key:"unemp",label:"Unemployment rate (%)"},{key:"acs_unins",label:"ACS uninsured rate (a proxy of the outcome!)",trap:true}],
+    strata:[{key:"metro",label:"Same metro status (RUCC 1–3 vs 4–9)"},{key:"border",label:"Same border status"}],
+    defaultFactors:["lpop","pov","hisp","medage","pct65"], defaultFocal:"48479", policy:"Expanded a county indigent-care program (simulated flag)" },
+  district: { name:"School districts", blurb:"900 districts. Outcome: students meeting grade level.",
+    outcome:{key:"meets", label:"Students meeting grade level (%)"},
+    factors:[{key:"lenroll",label:"Enrollment (log)"},{key:"ecodis",label:"Econ. disadvantaged (%)"},{key:"embil",label:"Emergent bilingual (%)"},{key:"sped",label:"Special education (%)"},{key:"mobility",label:"Student mobility (%)"},{key:"lastyear",label:"Last year's meets rate (a proxy of the outcome!)",trap:true}],
+    strata:[{key:"community",label:"Same community type (urban / suburban / rural)"},{key:"charter",label:"Same charter status"}],
+    defaultFactors:["lenroll","ecodis","embil","sped"], defaultFocal:"D0617", policy:"Adopted a high-dosage tutoring program (simulated)" },
+  college: { name:"Colleges", blurb:"150 institutions. Outcome: six-year graduation rate.",
+    outcome:{key:"grad", label:"Six-year graduation rate (%)"},
+    factors:[{key:"lsize",label:"Enrollment (log)"},{key:"pell",label:"Pell share (%)"},{key:"parttime",label:"Part-time share (%)"},{key:"sat",label:"Test score midpoint"},{key:"retention",label:"First-year retention (a proxy of the outcome!)",trap:true}],
+    strata:[{key:"carnegie",label:"Same Carnegie class"},{key:"sector",label:"Same sector (public / private)"}],
+    defaultFactors:["lsize","pell","parttime","sat"], defaultFocal:"C077", policy:"Adopted guided pathways (simulated)" },
+  trend: { name:"Growth trends", blurb:"254 county job paths, 2014–2024. Outcome: jobs growth.",
+    outcome:{key:"growth", label:"Jobs growth 2014–2024 (%)"},
+    factors:[{key:"slope",label:"Trend slope (%/yr)"},{key:"vol",label:"Volatility"},{key:"dip",label:"2020 dip (%)"},{key:"lpop",label:"Population (log)"}],
+    strata:[{key:"metro",label:"Same metro status"}],
+    defaultFactors:["slope","vol","dip"], defaultFocal:"48479" },
+  region: { name:"Regions (grid zones)", blurb:"8 grid weather zones, modelled on ERCOT's. Outcome: peak-load growth.",
+    outcome:{key:"peakgr", label:"Peak-load growth 2019–24 (%)"},
+    factors:[{key:"loadgr",label:"Load growth (%/yr)"},{key:"cdd",label:"Cooling degree days"},{key:"hdd",label:"Heating degree days"},{key:"indshare",label:"Industrial share of load (%)"},{key:"popgr",label:"Population growth (%/yr)"}],
+    strata:[], defaultFactors:["loadgr","cdd","indshare","popgr"], defaultFocal:"SOUTH" },
+  state: { name:"States", blurb:"Texas vs 49 states. Outcome: an illustrative index.",
+    outcome:{key:"y2024", label:"Outcome index, 2024"},
+    factors:[{key:"lpop",label:"Population (log)"},{key:"lgdp",label:"GDP (log)"},{key:"netmig",label:"Net migration rate"},{key:"pcinc",label:"Per capita income ($000)"},{key:"mfg",label:"Manufacturing share (%)"},{key:"metros",label:"Large metro areas"}],
+    strata:[{key:"sunbelt",label:"Sun Belt states only"}], defaultFactors:["lpop","lgdp","netmig","pcinc"], defaultFocal:"Texas" },
+};
+
+const QUESTIONS = [
+  {key:"benchmark", name:"Benchmark a level", blurb:"How does one unit compare with similar units on an outcome?"},
+  {key:"policy", name:"Evaluate a policy", blurb:"Some units adopted a policy. Did it change the outcome?"},
+  {key:"typology", name:"Build groups or a map", blurb:"Sort every unit into a few named types."},
+  {key:"rank", name:"Rank for a dashboard", blurb:"A public ranking that stays stable and fair across sizes."},
+];
+
+// method: units it fits, questions it fits, recommended for (unit,question) pairs
+const METHODS = [
+  {key:"knn", name:"Strata, then nearest neighbors", blurb:"Keep units that share a trait, then take the k most similar on the factors.", units:["county","district","college","state"], qs:["benchmark","rank"], rec:[["county","benchmark"],["college","benchmark"],["state","benchmark"]], tag:"Method 1 / 7"},
+  {key:"typology", name:"Fixed typology cells", blurb:"Cut two factors into bands; peers are everyone in the same cell.", units:["county","district"], qs:["rank","typology","benchmark"], rec:[["county","rank"],["district","rank"]], tag:"Method 2"},
+  {key:"cem", name:"Coarsened bins, then rank", blurb:"Bins on each factor keep every peer within range; a distance score then ranks the units inside the cell.", units:["county","district"], qs:["benchmark","rank"], rec:[["district","benchmark"]], tag:"Method 4"},
+  {key:"pscore", name:"Propensity score", blurb:"Compare adopters with non-adopters of similar adoption probability.", units:["county","district","college"], qs:["policy"], rec:[["county","policy"],["district","policy"],["college","policy"]], tag:"Method 5"},
+  {key:"predicted", name:"Predicted-value peers", blurb:"Peers share a predicted outcome; units far above or below their prediction count as over- or under-performers.", units:["county","district","college"], qs:["benchmark"], rec:[["college","benchmark"]], tag:"Method 6 / 15"},
+  {key:"trajectory", name:"Trajectory distance", blurb:"Match on the whole path over time, or on its slope, volatility, and dip.", units:["trend"], qs:["benchmark","rank"], rec:[["trend","benchmark"],["trend","rank"]], tag:"Method 8"},
+  {key:"cluster", name:"Clustering (k-means)", blurb:"Sort units into k groups; peers are the other members of the focal unit’s group.", units:["county","district","college","trend","region"], qs:["typology"], rec:[["county","typology"],["district","typology"],["college","typology"],["trend","typology"],["region","typology"]], tag:"Method 9 / 10"},
+  {key:"fixedzones", name:"Fixed zones", blurb:"The regulator defines the zones; compare all of them on standardized gaps.", units:["region"], qs:["benchmark","rank"], rec:[["region","benchmark"],["region","rank"]], tag:"Method 11"},
+  {key:"synth", name:"Synthetic control", blurb:"Weight donor states to track Texas before the event; the gap after is the estimate.", units:["state"], qs:["policy"], rec:[["state","policy"]], tag:"Method 12"},
+  {key:"entropy", name:"Entropy weights", blurb:"Reweight the other states so their factor averages match those of Texas.", units:["state"], qs:["benchmark"], rec:[], tag:"Method 13"},
+  {key:"fixedlist", name:"Fixed list of 11 states", blurb:"The team’s current convention; check it against the factors you choose.", units:["state"], qs:["benchmark","rank"], rec:[["state","rank"]], tag:"Current practice"},
+];
+
+// =====================================================================================
+// SYNTHETIC DATA
+// =====================================================================================
+const DATA = {};
+function buildData(){
+  // counties (real) + simulated policy flag
+  R = mulberry32(11);
+  DATA.county = COUNTIES.filter(c=>c.unins!=null).map(c=>{
+    const xb = -1.2 + 0.6*(c.metro||0) + 0.03*(c.pov-15) + 0.01*(c.hisp-35);
+    const p = 1/(1+Math.exp(-xb));
+    return Object.assign({}, c, {adopt: R()<p?1:0, strataLabel:(c.metro?"Metro":"Non-metro")+(c.border?", border":"")});
+  });
+  // simulated policy effect on counties: adopters have outcome - 2 (so the true effect is -2 points)
+  DATA.county.forEach(c=>{ c.unins_policy = +(c.unins - (c.adopt?2:0)).toFixed(1); });
+
+  // districts
+  R = mulberry32(22);
+  const comms=["Urban","Suburban","Rural"];
+  DATA.district = Array.from({length:900},(_,i)=>{
+    const community = comms[Math.floor(R()*3)];
+    const lenroll = clamp(rnorm(7 + (community==="Urban"?1.2:community==="Suburban"?0.6:-0.6), 1.0), 4, 11.5);
+    const charter = R()<0.12?1:0;
+    const ecodis = clamp(60 + (community==="Rural"?5:0) + rnorm(0,20), 5, 98);
+    const embil = clamp(18 + 0.25*(ecodis-60) + rnorm(0,12), 1, 90);
+    const sped = clamp(11 + rnorm(0,2.5), 4, 22);
+    const mobility = clamp(16 + 0.1*(ecodis-60) + rnorm(0,5), 4, 45);
+    const xb = -1.5 + 0.35*(lenroll-7) + 0.015*(ecodis-60);
+    const adopt = R()<1/(1+Math.exp(-xb))?1:0;
+    let meets = 62 - 0.42*(ecodis-60) - 0.12*(embil-18) - 0.5*(sped-11) - 0.25*(mobility-16) + 1.5*(lenroll-7) + rnorm(0,6) + (adopt?3:0);
+    meets = clamp(meets, 8, 95);
+    return {id:"D"+String(i+1).padStart(4,"0"), name:"District "+(i+1), lenroll, ecodis, embil, sped, mobility, community, charter, adopt, meets:+(meets-(adopt?3:0)).toFixed(1), meets_policy:+meets.toFixed(1), lastyear:+(meets+rnorm(0,2.5)).toFixed(1), strataLabel:community+(charter?", charter":"")};
+  });
+
+  // colleges
+  R = mulberry32(33);
+  const classes=["Associate's","Baccalaureate","Master's","Doctoral","R1 / R2"];
+  DATA.college = Array.from({length:150},(_,i)=>{
+    const ci = Math.floor(R()*5); const carnegie = classes[ci];
+    const sector = R()<0.65?"Public":"Private";
+    const lsize = clamp(rnorm(8.2 + 0.45*(ci-2), 0.6), 6, 11);
+    const pell = clamp(45 - 4*(ci-2) + rnorm(0,12), 8, 90);
+    const parttime = clamp(30 - 6*(ci-2) + rnorm(0,10), 3, 80);
+    const sat = clamp(1080 + 60*(ci-2) - 2.5*(pell-45) + rnorm(0,70), 850, 1500);
+    const adopt = R()<0.4?1:0;
+    let grad = 55 - 0.35*(pell-45) + 0.05*(sat-1080) - 0.25*(parttime-30) + 2*(lsize-8.2) + rnorm(0,7) + (adopt?2.5:0);
+    grad = clamp(grad, 8, 96);
+    return {id:"C"+String(i+1).padStart(3,"0"), name:"College "+(i+1), carnegie, sector, lsize, pell, parttime, sat, adopt, grad:+(grad-(adopt?2.5:0)).toFixed(1), grad_policy:+grad.toFixed(1), retention:+(clamp(grad+22+rnorm(0,4),20,99)).toFixed(1), strataLabel:carnegie+", "+sector};
+  });
+
+  // trends: real county names, simulated jobs paths 2014-2024
+  R = mulberry32(44);
+  DATA.trend = COUNTIES.map(c=>{
+    const g = 0.012 + 0.006*((c.metro?1:0)-0.4) + rnorm(0,0.011);
+    const amp = 0.5 + 1.5*R(); const ph = R()*6;
+    const dipsize = 0.02 + 0.06*R();
+    const path=[]; let v=100;
+    for(let t=0;t<=10;t++){
+      const yr=2014+t; let val = 100*Math.exp(g*t + 0.015*amp*Math.sin(t*1.1+ph) + rnorm(0,0.006));
+      if(yr===2020) val *= (1-dipsize); if(yr===2021) val *= (1-dipsize*0.4);
+      path.push(+val.toFixed(2));
+    }
+    const lr = path.map((p,i)=>i>0?Math.log(p/path[i-1]):0).slice(1);
+    const slope = +(100*mean(lr)).toFixed(2); const vol=+(100*sd(lr)).toFixed(2);
+    const dip = +(100*(path[6]/path[5]-1)).toFixed(1);
+    return {id:c.id, name:c.name, path, slope, vol, dip, lpop:c.lpop, metro:c.metro, growth:+(path[10]-100).toFixed(1), strataLabel:c.metro?"Metro":"Non-metro"};
+  });
+
+  // regions
+  R = mulberry32(55);
+  const zones=["Coast","East","Far West","North","North Central","South","South Central","West"];
+  const base={Coast:[3.2,2900,1500,38,1.6],East:[1.4,2300,2100,22,0.6],"Far West":[6.5,2700,1400,55,0.9],North:[2.0,2200,2600,18,1.2],"North Central":[3.0,2500,2200,15,2.0],South:[3.6,3100,900,30,1.4],"South Central":[3.4,2800,1500,20,2.3],West:[4.8,2500,2000,45,0.5]};
+  DATA.region = zones.map(z=>{const b=base[z]; const loadgr=b[0]+rnorm(0,0.3), cdd=b[1]+rnorm(0,80), hdd=b[2]+rnorm(0,80), indshare=b[3]+rnorm(0,2), popgr=b[4]+rnorm(0,0.2);
+    return {id:z.toUpperCase(), name:z, loadgr, cdd, hdd, indshare, popgr, peakgr:+(5*loadgr + 0.004*(cdd-2500) + 0.15*indshare + rnorm(0,2)).toFixed(1), strataLabel:"zone"};});
+
+  // states: simulated cross-section + panel 2010-2024
+  R = mulberry32(66);
+  const sunbelt=["Alabama","Arizona","Arkansas","California","Florida","Georgia","Louisiana","Mississippi","Nevada","New Mexico","North Carolina","Oklahoma","South Carolina","Tennessee","Texas","Utah"];
+  const bigpop={California:39,Texas:30.5,Florida:22.6,"New York":19.6,Pennsylvania:13,Illinois:12.5,Ohio:11.8,Georgia:11,"North Carolina":10.8,Michigan:10,"New Jersey":9.3,Virginia:8.7,Washington:7.8,Arizona:7.4,Tennessee:7.1,Massachusetts:7,Indiana:6.9,Missouri:6.2,Maryland:6.2,Wisconsin:5.9,Colorado:5.9,Minnesota:5.7,"South Carolina":5.4,Alabama:5.1,Louisiana:4.6,Kentucky:4.5,Oregon:4.2,Oklahoma:4.1,Connecticut:3.6,Utah:3.4,Iowa:3.2,Nevada:3.2,Arkansas:3.1,Mississippi:2.9,Kansas:2.9,"New Mexico":2.1,Nebraska:2,Idaho:2,"West Virginia":1.8,Hawaii:1.4,"New Hampshire":1.4,Maine:1.4,Montana:1.1,"Rhode Island":1.1,Delaware:1,"South Dakota":0.9,"North Dakota":0.8,Alaska:0.7,Vermont:0.65,Wyoming:0.58};
+  DATA.state = STATES.map((s,i)=>{
+    const pop = bigpop[s]||2; const lpop=Math.log(pop*1e6);
+    const pcinc = clamp(58 + rnorm(0,8) + (["Massachusetts","Connecticut","New York","California","New Jersey","Washington"].includes(s)?12:0), 40, 95);
+    const lgdp = Math.log(pop*1e6*pcinc*1000*1.15*(0.9+0.2*R()));
+    const netmig = clamp(rnorm(sunbelt.includes(s)?6:-1, 4), -12, 16);
+    const mfg = clamp(rnorm(11,3), 3, 20);
+    const metros = Math.max(0, Math.round(pop/2.8 + rnorm(0,1)));
+    const path=[]; const trend = 1.0 + 0.5*R();
+    for(let t=0;t<=14;t++){ path.push(100 + trend*t + rnorm(0,0.9) + 2.2*Math.sin(t/2 + i)); }
+    return {id:s, name:s, lpop, lgdp, netmig, pcinc, mfg, metros, sunbelt:sunbelt.includes(s)?1:0, path, strataLabel:sunbelt.includes(s)?"Sun Belt":"Other"};
+  });
+  // make Texas a convex combination of a few donors pre-2019, then add a post-2019 effect (+0.8/yr)
+  const tx = DATA.state.find(s=>s.id==="Texas"); const d=["Florida","Georgia","Arizona","North Carolina"].map(n=>DATA.state.find(s=>s.id===n));
+  tx.path = tx.path.map((_,t)=>{const v = 0.4*d[0].path[t]+0.3*d[1].path[t]+0.15*d[2].path[t]+0.15*d[3].path[t]+rnorm(0,0.3); return v + (t>9 ? 0.8*(t-9) : 0);});
+  DATA.state.forEach(s=>{ s.y2024 = +s.path[14].toFixed(1); });
+}
+
+// =====================================================================================
+// NUMERICAL ENGINE
+// =====================================================================================
+function zscores(rows, keys){ // returns {z: array of arrays, means, sds}
+  const means={}, sds={};
+  keys.forEach(k=>{const v=rows.map(r=>r[k]); means[k]=mean(v); sds[k]=sd(v)||1;});
+  const z = rows.map(r=>keys.map(k=>(r[k]-means[k])/sds[k]));
+  return {z, means, sds};
+}
+function covariance(Z){ const n=Z.length, p=Z[0].length; const C=Array.from({length:p},()=>Array(p).fill(0));
+  const m=Array(p).fill(0); Z.forEach(r=>r.forEach((v,j)=>m[j]+=v/n));
+  Z.forEach(r=>{for(let i=0;i<p;i++)for(let j=0;j<p;j++)C[i][j]+=(r[i]-m[i])*(r[j]-m[j])/(n-1);}); return C; }
+function inverse(M){ const n=M.length; const A=M.map((r,i)=>[...r, ...Array.from({length:n},(_,j)=>i===j?1:0)]);
+  for(let c=0;c<n;c++){ let p=c; for(let r=c+1;r<n;r++) if(Math.abs(A[r][c])>Math.abs(A[p][c])) p=r; [A[c],A[p]]=[A[p],A[c]];
+    const d=A[c][c]||1e-9; for(let j=0;j<2*n;j++)A[c][j]/=d;
+    for(let r=0;r<n;r++){ if(r===c) continue; const f=A[r][c]; for(let j=0;j<2*n;j++)A[r][j]-=f*A[c][j]; } }
+  return A.map(r=>r.slice(n)); }
+function distances(Z, fi, mode){ // distance of every row from row fi
+  const p=Z[0].length; let Si=null; if(mode==="mahalanobis"){ Si=inverse(covariance(Z)); }
+  return Z.map(r=>{ const e=r.map((v,j)=>v-Z[fi][j]); if(!Si) return Math.sqrt(e.reduce((s,x)=>s+x*x,0));
+    let s=0; for(let i=0;i<p;i++){ let t=0; for(let j=0;j<p;j++) t+=e[j]*Si[j][i]; s+=t*e[i]; } return Math.sqrt(Math.max(0,s)); }); }
+function smd(rows, focal, peers, key, poolSd){ const pm = mean(peers.map(r=>r[key])); return Math.abs(focal[key]-pm)/(poolSd||1); }
+function ols(X, y){ // X rows without intercept; returns {beta, yhat, resid, sigma}
+  const n=X.length, p=X[0].length+1; const A=X.map(r=>[1,...r]);
+  const XtX=Array.from({length:p},()=>Array(p).fill(0)), Xty=Array(p).fill(0);
+  A.forEach((r,i)=>{for(let a=0;a<p;a++){Xty[a]+=r[a]*y[i]; for(let b=0;b<p;b++)XtX[a][b]+=r[a]*r[b];}});
+  const inv=inverse(XtX); const beta=inv.map(row=>row.reduce((s,v,j)=>s+v*Xty[j],0));
+  const yhat=A.map(r=>r.reduce((s,v,j)=>s+v*beta[j],0)); const resid=y.map((v,i)=>v-yhat[i]);
+  const sigma=Math.sqrt(resid.reduce((s,e)=>s+e*e,0)/Math.max(1,n-p)); return {beta,yhat,resid,sigma}; }
+function kmeans(Z, k, seed){ const r=mulberry32(seed); const n=Z.length; let cent=Array.from({length:k},()=>Z[Math.floor(r()*n)].slice()); let lab=Array(n).fill(0);
+  for(let it=0;it<40;it++){ lab=Z.map(z=>{let b=0,bd=Infinity; cent.forEach((c,ci)=>{const d=c.reduce((s,v,j)=>s+(v-z[j])**2,0); if(d<bd){bd=d;b=ci;}}); return b;});
+    const nc=cent.map(c=>c.map(()=>0)), cnt=Array(k).fill(0); Z.forEach((z,i)=>{cnt[lab[i]]++; z.forEach((v,j)=>nc[lab[i]][j]+=v);});
+    cent=nc.map((c,ci)=>cnt[ci]?c.map(v=>v/cnt[ci]):cent[ci]); }
+  // calinski-harabasz
+  const p=Z[0].length, gm=Array(p).fill(0); Z.forEach(z=>z.forEach((v,j)=>gm[j]+=v/n));
+  let B=0,W=0; const cnt=Array(k).fill(0); Z.forEach((z,i)=>cnt[lab[i]]++);
+  cent.forEach((c,ci)=>{B+=cnt[ci]*c.reduce((s,v,j)=>s+(v-gm[j])**2,0);}); Z.forEach((z,i)=>{W+=z.reduce((s,v,j)=>s+(v-cent[lab[i]][j])**2,0);});
+  const ch=(B/Math.max(1,k-1))/(W/Math.max(1,n-k)); return {lab,cent,ch}; }
+function projSimplex(v){ // Euclidean projection onto {w >= 0, sum w = 1}
+  const n=v.length; const u=[...v].sort((a,b)=>b-a); let css=0, rho=-1, theta=0; for(let i=0;i<n;i++){ css+=u[i]; const t=(css-1)/(i+1); if(u[i]-t>0){ rho=i; theta=t; } } return v.map(x=>Math.max(0,x-theta)); }
+function nnls(Y0raw, y1raw, iters=2000){ // weights >= 0, sum 1, minimizing ||Y0 w - y1||: projected gradient with a power-iteration step size
+  // centre each period by its donor mean: with weights summing to one this leaves the fit unchanged and removes the common level that otherwise swamps the step size
+  const T=Y0raw.length, J=Y0raw[0].length; const Y0=Y0raw.map(r=>{ const m=r.reduce((a,b)=>a+b,0)/J; return r.map(v=>v-m); }); const y1=y1raw.map((v,t)=>v-Y0raw[t].reduce((a,b)=>a+b,0)/J); let w=Array(J).fill(1/J);
+  const G=Array.from({length:J},()=>Array(J).fill(0)); for(let t=0;t<T;t++) for(let a=0;a<J;a++){ const ya=Y0[t][a]; for(let b=a;b<J;b++){ G[a][b]+=ya*Y0[t][b]; } } for(let a=0;a<J;a++) for(let b=0;b<a;b++) G[a][b]=G[b][a];
+  let v=Array(J).fill(1/Math.sqrt(J)), L=1; for(let it=0;it<40;it++){ const nv=G.map(r=>r.reduce((s,g,k)=>s+g*v[k],0)); const nrm=Math.sqrt(nv.reduce((s,x)=>s+x*x,0))||1; L=nrm; v=nv.map(x=>x/nrm); } L=Math.max(L,1e-9);
+  const Yty=Array(J).fill(0); for(let t=0;t<T;t++) for(let j=0;j<J;j++) Yty[j]+=Y0[t][j]*y1[t];
+  for(let it=0;it<iters;it++){ const g=G.map((r,a)=>r.reduce((s,gv,k)=>s+gv*w[k],0)-Yty[a]); w=projSimplex(w.map((x,j)=>x-g[j]/L)); }
+  return w; }
+function entropyWeights(Z, target, iters=3000){ // weights on rows so weighted mean of Z == target; min KL from uniform
+  const n=Z.length, p=Z[0].length; let lam=Array(p).fill(0); let w=Array(n).fill(1/n); const lr=0.5;
+  for(let it=0;it<iters;it++){ const sc=Z.map(z=>z.reduce((s,v,j)=>s+v*lam[j],0)); const mx=Math.max(...sc); w=sc.map(s=>Math.exp(s-mx)); const tot=w.reduce((a,b)=>a+b,0); w=w.map(v=>v/tot);
+    const m=Array(p).fill(0); Z.forEach((z,i)=>z.forEach((v,j)=>m[j]+=w[i]*v)); const grad=m.map((v,j)=>v-target[j]); lam=lam.map((l,j)=>l-lr*grad[j]); if(Math.max(...grad.map(Math.abs))<1e-5) break; }
+  return w; }
+function jaccard(a,b){ const A=new Set(a), B=new Set(b); let inter=0; A.forEach(x=>{if(B.has(x))inter++;}); return inter/(A.size+B.size-inter||1); }
+
+// =====================================================================================
+// CHART HELPERS (plain SVG)
+// =====================================================================================
+const NS="http://www.w3.org/2000/svg";
+function niceTicks(lo,hi,n=5){ if(hi===lo){hi=lo+1;} const span=hi-lo; const step0=span/n; const mag=Math.pow(10,Math.floor(Math.log10(step0))); const res=step0/mag; const step=(res>=5?10:res>=2?5:res>=1?2:1)*mag*(res<1?1:1);
+  const s = res>5?10*mag:res>2?5*mag:res>1?2*mag:mag; const t=[]; for(let v=Math.ceil(lo/s)*s; v<=hi+1e-9; v+=s) t.push(+v.toFixed(10)); return t; }
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");}
+function axes(W,H,m,xs,ys,xlab,ylab,xt,yt,xfmt=v=>v,yfmt=v=>v){
+  let s=`<g class="grid">`; yt.forEach(v=>{const y=ys(v); s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}"/>`;}); s+=`</g><g class="axis">`;
+  s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}"/><line x1="${m.l}" x2="${m.l}" y1="${m.t}" y2="${H-m.b}"/>`;
+  xt.forEach(v=>{s+=`<text x="${xs(v)}" y="${H-m.b+16}" text-anchor="middle">${xfmt(v)}</text>`;});
+  yt.forEach(v=>{s+=`<text x="${m.l-6}" y="${ys(v)+4}" text-anchor="end">${yfmt(v)}</text>`;});
+  s+=`<text class="lbl" x="${(m.l+W-m.r)/2}" y="${H-6}" text-anchor="middle" style="fill:#1F2733;font-size:12.5px">${esc(xlab)}</text>`;
+  s+=`<text class="lbl" transform="translate(14,${(m.t+H-m.b)/2}) rotate(-90)" text-anchor="middle" style="fill:#1F2733;font-size:12.5px">${esc(ylab)}</text></g>`; return s; }
+function scatterSVG(o){ // o: {pts:[{x,y,cls,tip,r,label}], xlab,ylab, refLines:[{x|y, cls, label}], annotations:[{x,y,text}]}
+  const W=o.W||560,H=o.H||330,m={l:52,r:16,t:14,b:44}; const xs0=o.pts.map(p=>p.x), ys0=o.pts.map(p=>p.y);
+  let xlo=Math.min(...xs0), xhi=Math.max(...xs0), ylo=Math.min(...ys0), yhi=Math.max(...ys0); if(o.ylo!=null)ylo=Math.min(ylo,o.ylo); if(o.yhi!=null)yhi=Math.max(yhi,o.yhi);
+  const px=(xhi-xlo)*0.06||1, py=(yhi-ylo)*0.08||1; xlo-=px;xhi+=px;ylo-=py;yhi+=py;
+  const xs=v=>m.l+(v-xlo)/(xhi-xlo)*(W-m.l-m.r), ys=v=>H-m.b-(v-ylo)/(yhi-ylo)*(H-m.t-m.b);
+  let s=`<svg viewBox="0 0 ${W} ${H}">`+axes(W,H,m,xs,ys,o.xlab,o.ylab,niceTicks(xlo,xhi),niceTicks(ylo,yhi),o.xfmt,o.yfmt);
+  (o.refLines||[]).forEach(r=>{ if(r.y!=null){ s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${ys(r.y)}" y2="${ys(r.y)}" stroke="${r.color||'#001D3D'}" stroke-dasharray="${r.dash||'5,4'}" stroke-width="1.5"/>`; if(r.label) s+=`<text class="ann" x="${W-m.r-4}" y="${ys(r.y)-5}" text-anchor="end" style="fill:${r.color||'#001D3D'}">${esc(r.label)}</text>`; }
+    if(r.x!=null){ s+=`<line y1="${m.t}" y2="${H-m.b}" x1="${xs(r.x)}" x2="${xs(r.x)}" stroke="${r.color||'#001D3D'}" stroke-dasharray="5,4" stroke-width="1.5"/>`; if(r.label) s+=`<text class="ann" x="${xs(r.x)+4}" y="${m.t+12}" style="fill:${r.color||'#001D3D'}">${esc(r.label)}</text>`; } });
+  (o.rects||[]).forEach(r=>{ s+=`<rect x="${xs(r.x0)}" y="${ys(r.y1)}" width="${xs(r.x1)-xs(r.x0)}" height="${ys(r.y0)-ys(r.y1)}" fill="${r.fill||'rgba(255,195,0,.18)'}" stroke="${r.stroke||'#C98F00'}" stroke-dasharray="4,3"/>`; });
+  (o.bands||[]).forEach(b=>{ s+=`<path d="${b.d(xs,ys)}" fill="${b.fill}" stroke="none"/>`; });
+  (o.lines||[]).forEach(l=>{ s+=`<path d="${l.pts.map((p,i)=>(i?'L':'M')+xs(p[0])+','+ys(p[1])).join(' ')}" fill="none" stroke="${l.color}" stroke-width="${l.w||2}" stroke-dasharray="${l.dash||''}"/>`; });
+  const order={pool:0,other:1,peer:2,gold:2,focal:3};
+  [...o.pts].sort((a,b)=>(order[a.cls]||0)-(order[b.cls]||0)).forEach(p=>{ const c=p.cls==="focal"?"#E4573A":p.cls==="peer"?"#0C55A5":p.cls==="gold"?"#C98F00":p.cls==="navy"?"#001D3D":p.cls==="other"?"#8E95A0":"#C3C8CF"; const r=p.r||(p.cls==="focal"?8:p.cls==="peer"||p.cls==="gold"?6:3.5);
+    if(p.cls==="focal") s+=`<rect class="mark" x="${xs(p.x)-r}" y="${ys(p.y)-r}" width="${2*r}" height="${2*r}" rx="2" fill="${c}" stroke="#fff" stroke-width="2" data-tip="${esc(p.tip||'')}"/>`;
+    else s+=`<circle class="mark" cx="${xs(p.x)}" cy="${ys(p.y)}" r="${r}" fill="${c}" ${p.cls==="peer"||p.cls==="gold"?'stroke="#fff" stroke-width="1.5"':''} data-tip="${esc(p.tip||'')}"/>`;
+    if(p.label) s+=`<text class="ann" x="${xs(p.x)+r+4}" y="${ys(p.y)+4}">${esc(p.label)}</text>`; });
+  (o.annotations||[]).forEach(a=>{ s+=`<text class="ann" x="${xs(a.x)}" y="${ys(a.y)}" text-anchor="${a.anchor||'start'}" style="fill:${a.color||'#001D3D'}">${esc(a.text)}</text>`; });
+  return s+`</svg>`; }
+function dotplotSVG(o){ // o: {rows:[{label, pts:[{v,cls,tip}]}], xlab, xlines:[{v,label,color}], xlo,xhi}
+  const W=o.W||560, rowH=26, nlab=(o.xlines||[]).filter(l=>l.label).length, m={l:150,r:16,t:nlab?14+12*Math.min(2,nlab):14,b:40}, H=m.t+m.b+rowH*o.rows.length;
+  const all=o.rows.flatMap(r=>[...r.pts.map(p=>p.v), ...(r.bar!=null?[r.bar,0]:[]), ...(r.range||[])]).filter(Number.isFinite); if(!all.length) all.push(0,1);
+  let xlo=o.xlo!=null?o.xlo:Math.min(...all), xhi=o.xhi!=null?o.xhi:Math.max(...all); if(xhi===xlo)xhi=xlo+1; const pad=(xhi-xlo)*0.06; xlo-= o.xlo!=null?0:pad; xhi+=pad;
+  const xs=v=>m.l+(v-xlo)/(xhi-xlo)*(W-m.l-m.r);
+  let s=`<svg viewBox="0 0 ${W} ${H}"><g class="axis">`; niceTicks(xlo,xhi).forEach(v=>{ s+=`<line class="g" x1="${xs(v)}" x2="${xs(v)}" y1="${m.t}" y2="${H-m.b}" stroke="#EEF0F3"/><text x="${xs(v)}" y="${H-m.b+16}" text-anchor="middle">${o.xfmt?o.xfmt(v):v}</text>`;});
+  s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}"/><text x="${(m.l+W-m.r)/2}" y="${H-6}" text-anchor="middle" style="fill:#1F2733;font-size:12.5px">${esc(o.xlab)}</text></g>`;
+  (o.xlines||[]).forEach((l,li)=>{ s+=`<line x1="${xs(l.v)}" x2="${xs(l.v)}" y1="${m.t}" y2="${H-m.b}" stroke="${l.color||'#E4573A'}" stroke-dasharray="${l.dash||'5,4'}" stroke-width="1.5"/>`; if(l.label) s+=`<text class="ann" x="${xs(l.v)+3}" y="${10+12*(li%2)}" style="fill:${l.color||'#E4573A'};font-size:11px">${esc(l.label)}</text>`; });
+  o.rows.forEach((r,i)=>{ const y=m.t+rowH*i+rowH/2; s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}" stroke="#F1F2F4"/><text x="${m.l-8}" y="${y+4}" text-anchor="end" style="font-size:12.5px;fill:#1F2733">${esc(r.label)}</text>`;
+    if(r.bar!=null){ const bx0=Math.max(m.l,Math.min(xs(0),xs(r.bar))), bx1=Math.max(m.l,Math.max(xs(0),xs(r.bar))); s+=`<rect x="${bx0}" y="${y-8}" width="${Math.max(0,bx1-bx0)}" height="16" rx="3" fill="${r.barColor||'#0C55A5'}"/>`; }
+    if(r.range){ s+=`<line x1="${xs(r.range[0])}" x2="${xs(r.range[1])}" y1="${y}" y2="${y}" stroke="#B9BEC6" stroke-width="2"/>`; }
+    r.pts.forEach(p=>{ const c=p.cls==="focal"?"#E4573A":p.cls==="peer"?"#0C55A5":p.cls==="gold"?"#C98F00":p.cls==="navy"?"#001D3D":"#8E95A0"; const hollow=p.hollow;
+      s+=`<circle class="mark" cx="${xs(p.v)}" cy="${y}" r="${p.r||6}" fill="${hollow?'#fff':c}" stroke="${c}" stroke-width="2" data-tip="${esc(p.tip||'')}"/>`; if(p.label) s+=`<text class="ann" x="${xs(p.v)+9}" y="${y+4}" style="font-size:11.5px">${esc(p.label)}</text>`; }); });
+  return s+`</svg>`; }
+function linesSVG(o){ // o:{series:[{name,color,pts:[[x,y]],w,dash}], xlab,ylab, vline:{x,label}}
+  const W=o.W||560,H=o.H||300,m={l:52,r:16,t:14,b:44}; const xs0=o.series.flatMap(s=>s.pts.map(p=>p[0])), ys0=o.series.flatMap(s=>s.pts.map(p=>p[1]));
+  let xlo=Math.min(...xs0),xhi=Math.max(...xs0),ylo=Math.min(...ys0),yhi=Math.max(...ys0); const py=(yhi-ylo)*0.08||1; ylo-=py; yhi+=py;
+  const xs=v=>m.l+(v-xlo)/(xhi-xlo)*(W-m.l-m.r), ys=v=>H-m.b-(v-ylo)/(yhi-ylo)*(H-m.t-m.b);
+  let s=`<svg viewBox="0 0 ${W} ${H}">`+axes(W,H,m,xs,ys,o.xlab,o.ylab,niceTicks(xlo,xhi,6).filter(Number.isInteger),niceTicks(ylo,yhi));
+  if(o.vline){ s+=`<line x1="${xs(o.vline.x)}" x2="${xs(o.vline.x)}" y1="${m.t}" y2="${H-m.b}" stroke="#61686E" stroke-dasharray="4,4"/><text class="ann" x="${xs(o.vline.x)+4}" y="${m.t+12}" style="fill:#61686E">${esc(o.vline.label||'')}</text>`; }
+  o.series.forEach(se=>{ s+=`<path d="${se.pts.map((p,i)=>(i?'L':'M')+xs(p[0])+','+ys(p[1])).join(' ')}" fill="none" stroke="${se.color}" stroke-width="${se.w||2}" stroke-dasharray="${se.dash||''}" opacity="${se.op||1}"><title>${esc(se.name)}</title></path>`;
+    if(se.label){ const last=se.pts[se.pts.length-1]; s+=`<text class="ann" x="${xs(last[0])-2}" y="${ys(last[1])-6}" text-anchor="end" style="fill:${se.color}">${esc(se.label)}</text>`; } });
+  return s+`</svg>`; }
+function histSVG(o){ // o:{series:[{vals,color,name}], bins, xlab, xlines}
+  const W=o.W||560,H=o.H||300,m={l:52,r:16,t:14,b:44}; const all=o.series.flatMap(s=>s.vals); const lo=Math.min(...all), hi=Math.max(...all); const nb=o.bins||20; const bw=(hi-lo)/nb||1;
+  const counts=o.series.map(s=>{const c=Array(nb).fill(0); s.vals.forEach(v=>{let b=Math.floor((v-lo)/bw); if(b>=nb)b=nb-1; c[b]++;}); return c.map(x=>x/s.vals.length);});
+  const ymax=Math.max(...counts.flat())*1.1; const xs=v=>m.l+(v-lo)/(hi-lo)*(W-m.l-m.r), ys=v=>H-m.b-v/ymax*(H-m.t-m.b);
+  let s=`<svg viewBox="0 0 ${W} ${H}">`+axes(W,H,m,xs,ys,o.xlab,"Share of units",niceTicks(lo,hi),niceTicks(0,ymax,4),v=>v,v=>v.toFixed(2));
+  counts.forEach((c,si)=>{ c.forEach((v,b)=>{ const x0=xs(lo+b*bw), x1=xs(lo+(b+1)*bw); s+=`<rect x="${x0+1}" y="${ys(v)}" width="${Math.max(1,x1-x0-2)}" height="${ys(0)-ys(v)}" fill="${o.series[si].color}" opacity="${si?0.6:0.9}" rx="2"><title>${esc(o.series[si].name)}: ${(100*v).toFixed(1)}% of units</title></rect>`; }); });
+  (o.xlines||[]).forEach(l=>{ s+=`<line x1="${xs(l.v)}" x2="${xs(l.v)}" y1="${m.t}" y2="${H-m.b}" stroke="#001D3D" stroke-dasharray="5,4" stroke-width="1.5"/>`; if(l.label) s+=`<text class="ann" x="${xs(l.v)+4}" y="${m.t+12}">${esc(l.label)}</text>`; });
+  return s+`</svg>`; }
+function barsSVG(o){ // vertical bars o:{items:[{label,v,color,tip}], ylab, yline}
+  const W=o.W||560,H=o.H||300,m={l:52,r:16,t:16,b:60}; const vals=o.items.map(i=>i.v); let ylo=Math.min(0,...vals), yhi=Math.max(0,...vals); const py=(yhi-ylo)*0.1||1; yhi+=py; if(ylo<0) ylo-=py;
+  const n=o.items.length; const bw=(W-m.l-m.r)/n; const ys=v=>H-m.b-(v-ylo)/(yhi-ylo)*(H-m.t-m.b);
+  let s=`<svg viewBox="0 0 ${W} ${H}"><g class="grid">`; niceTicks(ylo,yhi).forEach(v=>{s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${ys(v)}" y2="${ys(v)}"/>`;}); s+=`</g><g class="axis">`; niceTicks(ylo,yhi).forEach(v=>{s+=`<text x="${m.l-6}" y="${ys(v)+4}" text-anchor="end">${v}</text>`;});
+  const yl=String(o.ylab||''); let ylines=[yl]; if(yl.length*6>(m.t+H-m.b)-4){ const ws=yl.split(' '); let best=1,bd=Infinity; for(let i=1;i<ws.length;i++){ const dd=Math.abs(ws.slice(0,i).join(' ').length-ws.slice(i).join(' ').length); if(dd<bd){bd=dd;best=i;} } ylines=[ws.slice(0,best).join(' '), ws.slice(best).join(' ')]; }
+  s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${ys(0)}" y2="${ys(0)}"/><text transform="translate(${ylines.length>1?10:14},${(m.t+H-m.b)/2}) rotate(-90)" text-anchor="middle" style="fill:#1F2733;font-size:12.5px">${ylines.map((l,i)=>`<tspan x="0" dy="${i?14:0}">${esc(l)}</tspan>`).join('')}</text></g>`;
+  o.items.forEach((it,i)=>{ const x=m.l+i*bw+bw*0.18, w=bw*0.64; const y0=ys(Math.max(0,it.v)), h=Math.abs(ys(it.v)-ys(0)); s+=`<rect class="mark" x="${x}" y="${y0}" width="${w}" height="${Math.max(1,h)}" rx="3" fill="${it.color||'#0C55A5'}" data-tip="${esc(it.tip||'')}"/>`;
+    s+=`<text class="ann" x="${x+w/2}" y="${y0-5}" text-anchor="middle">${fmt(it.v,o.dec!=null?o.dec:1)}</text>`; const words=String(it.label).split(' '); const two=words.length>2&&String(it.label).length>12; s+=`<text x="${x+w/2}" y="${H-m.b+16}" text-anchor="middle" style="font-size:12px;fill:#1F2733">${esc((two?words.slice(0,2):words).join(' '))}</text>`; if(two) s+=`<text x="${x+w/2}" y="${H-m.b+31}" text-anchor="middle" style="font-size:12px;fill:#1F2733">${esc(words.slice(2).join(' '))}</text>`; });
+  if(o.yline!=null){ s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${ys(o.yline)}" y2="${ys(o.yline)}" stroke="#E4573A" stroke-dasharray="5,4" stroke-width="1.5"/>`; }
+  return s+`</svg>`; }
+
+// =====================================================================================
+// STATE + UI
+// =====================================================================================
+const S = { unit:null, q:null, method:null, factors:[], k:10, caliper:0, strata:{}, dist:"mahalanobis", focal:null, x:null, y:null, bins:4, band:3, kclust:4, treat:2019, pool:"all", pins:[], advOpen:false, powerOpen:false, notesOpen:false, howOpen:new Set(), tgt:3, trapAck:false };
+const $=id=>document.getElementById(id);
+const tipEl=$("tip");
+document.addEventListener("mousemove",e=>{ const t=e.target.closest&&e.target.closest("[data-tip]"); if(t&&t.dataset.tip){ tipEl.style.display="block"; tipEl.textContent=t.dataset.tip; tipEl.style.left=(e.clientX+14)+"px"; tipEl.style.top=(e.clientY+12)+"px"; } else tipEl.style.display="none"; });
+
+function renderLanding(){
+  $("unitCards").innerHTML = Object.entries(UNITS).map(([k,u])=>`<div class="card ${S.unit===k?'selected':''}" data-unit="${k}"><h3>${u.name}</h3><p>${u.blurb}</p>${u.real?'<span class="tag">Real data</span>':''}</div>`).join("");
+  $("qCards").innerHTML = QUESTIONS.map(q=>{ const ok=!S.unit||METHODS.some(m=>m.units.includes(S.unit)&&m.qs.includes(q.key)); return `<div class="card ${S.q===q.key?'selected':''} ${ok?'':'disabled'}" data-q="${q.key}"><h3>${q.name}</h3><p>${q.blurb}</p></div>`; }).join("");
+  $("mCards").innerHTML = METHODS.map(mt=>{ const ok = (!S.unit||mt.units.includes(S.unit)) && (!S.q||mt.qs.includes(S.q)); const rec = S.unit&&S.q&&mt.rec.some(([u,q])=>u===S.unit&&q===S.q);
+    return `<div class="card ${S.method===mt.key?'selected':''} ${ok?'':'disabled'}" data-m="${mt.key}" data-tip="Role: ${mt.tag.toLowerCase()}">${rec?'<span class="rec">Default for this choice</span>':''}<h3>${mt.name}</h3><p>${mt.blurb}</p></div>`; }).join("");
+  document.querySelectorAll("[data-unit]").forEach(el=>el.onclick=()=>{S.unit=el.dataset.unit; if(S.q&&!METHODS.some(m=>m.units.includes(S.unit)&&m.qs.includes(S.q))) S.q=null; if(S.method&&!METHODS.find(m=>m.key===S.method).units.includes(S.unit)) S.method=null; renderLanding();});
+  document.querySelectorAll("[data-q]").forEach(el=>{ if(el.classList.contains("disabled")) return; el.onclick=()=>{S.q=el.dataset.q; if(S.method&&!METHODS.find(m=>m.key===S.method).qs.includes(S.q)) S.method=null; renderLanding();}; });
+  document.querySelectorAll("[data-m]").forEach(el=>{ if(el.classList.contains("disabled")) return; el.onclick=()=>{S.method=el.dataset.m; renderLanding();}; });
+  const u=UNITS[S.unit], q=QUESTIONS.find(x=>x.key===S.q), mt=METHODS.find(x=>x.key===S.method);
+  $("chipUnit").className="chip"+(u?"":" empty"); $("chipUnit").innerHTML="Unit: "+(u?`<b>${u.name}</b>`:"not chosen");
+  $("chipQ").className="chip"+(q?"":" empty"); $("chipQ").innerHTML="Question: "+(q?`<b>${q.name}</b>`:"not chosen");
+  $("chipM").className="chip"+(mt?"":" empty"); $("chipM").innerHTML="Method: "+(mt?`<b>${mt.name}</b>`:"not chosen");
+  $("openBtn").disabled = !(u&&q&&mt);
+}
+$("openBtn").onclick=()=>{ openSim(); };
+$("backBtn").onclick=()=>{ try{ history.replaceState(null,"",location.pathname); }catch(e){} $("sim").style.display="none"; $("landing").style.display="block"; $("openBtn").style.display="inline-block"; $("backBtn").style.display="none"; window.scrollTo(0,0); };
+
+function openSim(){
+  renderLanding(); try{ history.replaceState(null,"","#"+S.unit+"/"+S.q+"/"+S.method); }catch(e){}
+  const u=UNITS[S.unit]; S.factors = u.defaultFactors.slice(); S.focal = u.defaultFocal; S.strata={}; S.k=10; S.caliper=0; S.dist="mahalanobis"; S.trapAck=false;
+  if(S.unit==="state"){ S.pool = S.method==="fixedlist"?"sf11":"all"; }
+  S.x=S.factors[1]||S.factors[0]; S.y=S.factors[0];
+  $("landing").style.display="none"; $("sim").style.display="block"; $("openBtn").style.display="none"; $("backBtn").style.display="inline-block"; window.scrollTo(0,0);
+  renderSim();
+}
+
+function ctlHTML(){
+  const u=UNITS[S.unit], rows=DATA[S.unit]; const m=S.method;
+  let h=`<h3>Set the controls</h3>`;
+  h+=`<div class="ctl"><label>Focal unit</label><select id="focalSel">${rows.map(r=>`<option value="${r.id}" ${r.id===S.focal?'selected':''}>${esc(r.name)}</option>`).join("")}</select></div>`;
+  if(m!=="fixedzones"){
+    h+=`<div class="ctl"><label>Factors that define “similar”</label><div class="checks">${u.factors.map(f=>`<label class="${f.trap?'trap':''}"><input type="checkbox" data-f="${f.key}" ${S.factors.includes(f.key)?'checked':''}> ${f.label}</label>`).join("")}</div></div>`;
+  }
+  if(["knn","cem","trajectory"].includes(m)){
+    h+=`<div class="ctl"><label data-tip="Fewer peers are closer but noisier; more peers are steadier but less similar.">Number of peers, k <span class="val" id="kVal">${S.k}</span></label><input type="range" id="kRange" min="3" max="30" value="${S.k}"></div>`;
+  }
+  if(m==="pscore"){ h+=`<div class="ctl"><label data-tip="The caliper is the largest allowed difference in score between an adopter and its match. Tighter: closer matches, fewer pairs.">Caliper on the score <span class="val" id="calVal">${S.caliper||0.05}</span></label><input type="range" id="calRange" min="0.01" max="0.3" step="0.01" value="${S.caliper||0.05}"></div>`; }
+  if(m==="typology"||m==="cem"){ h+=`<div class="ctl"><label data-tip="More bands: closer peers, thinner cells.">Bands per factor <span class="val" id="binVal">${S.bins}</span></label><input type="range" id="binRange" min="2" max="6" value="${S.bins}"></div>`; }
+  if(m==="predicted"){ h+=`<div class="ctl"><label>Peer band: predicted value within ± <span class="val" id="bandVal">${S.band}</span></label><input type="range" id="bandRange" min="1" max="8" step="0.5" value="${S.band}"></div>`; }
+  if(m==="cluster"){ h+=`<div class="ctl"><label>Number of groups, k <span class="val" id="kcVal">${S.kclust}</span></label><input type="range" id="kcRange" min="2" max="8" value="${S.kclust}"></div>`; }
+  if(m==="synth"){ h+=`<div class="ctl"><label data-tip="Weights are fit on the years before this. An earlier year is a placebo test: no real effect, so the gap should stay near zero.">Event year <span class="val" id="tVal">${S.treat}</span></label><input type="range" id="tRange" min="2013" max="2022" value="${S.treat}"></div>`; }
+  if(m==="trajectory"){ h+=`<div class="ctl"><label>Match on</label><div class="toggle"><button data-tm="path" class="${S.dist!=='params'?'on':''}">The whole path</button><button data-tm="params" class="${S.dist==='params'?'on':''}">Slope, volatility, dip</button></div></div>`; }
+  if(S.unit==="state"&&["synth","fixedlist","knn","entropy"].includes(m)){
+    h+=`<div class="ctl"><label>Candidate pool</label><select id="poolSel"><option value="all" ${S.pool==='all'?'selected':''}>All 49 other states</option><option value="sf11" ${S.pool==='sf11'?'selected':''}>11 Strategic Framework states</option><option value="big" ${S.pool==='big'?'selected':''}>Ten largest states</option></select></div>`;
+  }
+  // advanced
+  let adv="";
+  if(u.strata.length && ["knn","cem","typology","predicted","pscore","entropy","fixedlist","trajectory","cluster"].includes(m)){
+    adv+=`<div class="ctl"><label>Restrict candidates to…</label><div class="checks">${u.strata.map(st=>`<label><input type="checkbox" data-s="${st.key}" ${S.strata[st.key]?'checked':''}> ${st.label}</label>`).join("")}</div></div>`;
+  }
+  if(m==="knn"){
+    adv+=`<div class="ctl"><label data-tip="A caliper is a maximum distance: peers farther than this are dropped (0 = off).">Caliper <span class="val" id="calVal">${S.caliper?S.caliper.toFixed(1):'off'}</span></label><input type="range" id="calRange" min="0" max="6" step="0.5" value="${S.caliper}"></div>`;
+    adv+=`<div class="ctl"><label data-tip="Euclidean is straight-line distance on the standardized factors; Mahalanobis also discounts factors that move together.">Distance</label><div class="toggle"><button data-d="mahalanobis" class="${S.dist==='mahalanobis'?'on':''}">Mahalanobis</button><button data-d="euclidean" class="${S.dist==='euclidean'?'on':''}">Euclidean</button></div></div>`;
+  }
+  if(["knn","cem","typology","cluster","entropy","fixedlist"].includes(m) && S.unit!=="region"){
+    const fs=u.factors.filter(f=>!f.trap); adv+=`<div class="ctl"><label>Chart axes</label><select id="xSel">${fs.map(f=>`<option value="${f.key}" ${S.x===f.key?'selected':''}>x: ${f.label}</option>`).join("")}</select><div style="height:6px"></div><select id="ySel"><option value="__out" ${S.y==='__out'?'selected':''}>y: ${u.outcome.label} (the outcome)</option>${fs.map(f=>`<option value="${f.key}" ${S.y===f.key?'selected':''}>y: ${f.label}</option>`).join("")}</select></div>`;
+  }
+  if(adv) h+=`<details class="adv" id="advBox" ${S.advOpen?'open':''}><summary>Advanced options</summary>${adv}</details>`;
+  h+=`<div class="ctl" style="margin-top:14px"><button class="btn small coral" id="pinBtn">Pin this setup</button></div>`;
+  return h;
+}
+function wireControls(){
+  $("focalSel").onchange=e=>{S.focal=e.target.value; renderSim();};
+  document.querySelectorAll("[data-f]").forEach(el=>el.onchange=()=>{ S.factors=[...document.querySelectorAll("[data-f]:checked")].map(x=>x.dataset.f); renderSim(); });
+  document.querySelectorAll("[data-s]").forEach(el=>el.onchange=()=>{ S.strata[el.dataset.s]=el.checked; renderSim(); });
+  const kr=$("kRange"); if(kr) kr.oninput=e=>{S.k=+e.target.value; $("kVal").textContent=S.k; renderSim(true);};
+  const cr=$("calRange"); if(cr) cr.oninput=e=>{S.caliper=+e.target.value; $("calVal").textContent=S.method==="knn"?(S.caliper?S.caliper.toFixed(1):'off'):S.caliper; renderSim(true);};
+  const br=$("binRange"); if(br) br.oninput=e=>{S.bins=+e.target.value; $("binVal").textContent=S.bins; renderSim(true);};
+  const bd=$("bandRange"); if(bd) bd.oninput=e=>{S.band=+e.target.value; $("bandVal").textContent=S.band; renderSim(true);};
+  const kc=$("kcRange"); if(kc) kc.oninput=e=>{S.kclust=+e.target.value; $("kcVal").textContent=S.kclust; renderSim(true);};
+  const tr=$("tRange"); if(tr) tr.oninput=e=>{S.treat=+e.target.value; $("tVal").textContent=S.treat; renderSim(true);};
+  const ps=$("poolSel"); if(ps) ps.onchange=e=>{S.pool=e.target.value; renderSim();};
+  document.querySelectorAll("[data-d]").forEach(el=>el.onclick=()=>{S.dist=el.dataset.d; renderSim();});
+  document.querySelectorAll("[data-tm]").forEach(el=>el.onclick=()=>{S.dist=el.dataset.tm; renderSim();});
+  const xs=$("xSel"); if(xs) xs.onchange=e=>{S.x=e.target.value; renderSim();}; const ys=$("ySel"); if(ys) ys.onchange=e=>{S.y=e.target.value; renderSim();};
+  $("pinBtn").onclick=()=>{ if(LAST&&LAST.pin){ S.pins.push(LAST.pin); renderPins(); } };
+  const adv=$("advBox"); if(adv) adv.ontoggle=()=>{ S.advOpen=adv.open; };
+}
+let LAST=null;
+function renderPins(){ $("pins").style.display=S.pins.length?'block':'none'; if(!S.pins.length) return;
+  $("pinTable").innerHTML=`<table><tr><th>#</th><th>Setup</th><th>Peers</th><th>Focal</th><th>Peer mean</th><th>Gap</th><th>Worst balance (<abbr title="Standardized mean difference: the focal unit's distance from the peer mean on the worst-matched factor, in standard deviations">SMD</abbr>)</th></tr>${S.pins.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.setup)}</td><td>${p.n}</td><td>${fmt(p.focal)}</td><td>${fmt(p.peer)}</td><td><b>${p.gap==null?'–':(p.gap>0?'+':'')+fmt(p.gap)}</b></td><td>${fmt(p.smd,2)}</td></tr>`).join("")}</table><div class="muted" style="margin-top:6px">If the gap changes sign or size across pinned setups, report the range rather than one number.</div>`; }
+
+function renderSim(light){
+  if(!light){ $("controls").innerHTML=ctlHTML(); wireControls(); }
+  const u=UNITS[S.unit];
+  $("dataNote").textContent = u.real?"Real data":"Simulated data"; $("dataNote").title = u.real?"ACS 2019–23, CDC PLACES 2023, USDA RUCC 2023":"Simulated with a fixed seed";
+  let out; try { out = VIEWS[S.method](); } catch(err){ out={charts:[`<div class="chart wide"><h3>Could not compute</h3><p class="muted">${esc(err.message)}. Try fewer factors or a different focal unit.</p></div>`], notes:[], pin:null}; console.error(err); }
+  LAST=out;
+  $("charts").innerHTML=out.charts.join("");
+  document.querySelectorAll("#charts .chart").forEach((c,i)=>{ if(S.howOpen.has(i)) c.classList.add("open"); const b=c.querySelector("[data-how]"); if(b) b.onclick=()=>{ c.classList.toggle("open"); if(c.classList.contains("open")) S.howOpen.add(i); else S.howOpen.delete(i); }; });
+  document.querySelectorAll("#charts details.power").forEach(d=>{ d.ontoggle=()=>{ const was=S.powerOpen; S.powerOpen=d.open; if(d.open&&!was&&S.method==="synth") renderSim(true); }; });
+  const tg=$("tgtSel"); if(tg) tg.onchange=e=>{ S.tgt=+e.target.value; renderSim(true); };
+  renderNotes(out.notes);
+  renderPins();
+}
+function howto(txt){ return `<div class="howto"><b>How to read it:</b> ${txt}</div>`; }
+function legend(items){ return `<div class="legend">${items.map(([cls,t])=>`<span class="${cls}">${t}</span>`).join("")}</div>`; }
+function chartBox(title, q, body, wide){ const has=body.includes('class="howto"'); return `<div class="chart ${wide?'wide':''}"><h3>${title}${has?'<span class="how" data-how>How to read</span>':''}</h3><p class="q">${q}</p>${body}</div>`; }
+
+// =====================================================================================
+// SHARED PIECES
+// =====================================================================================
+function poolRows(){ const u=UNITS[S.unit]; let rows=DATA[S.unit]; const focal=rows.find(r=>r.id===S.focal);
+  Object.entries(S.strata).forEach(([k,on])=>{ if(on) rows=rows.filter(r=>r[k]===focal[k]); });
+  if(S.unit==="state"){ if(S.pool==="sf11") rows=rows.filter(r=>SF11.includes(r.id)||r.id===S.focal); if(S.pool==="big") rows=rows.filter(r=>BIG.includes(r.id)||r.id===S.focal); }
+  if(!rows.includes(focal)) rows=[focal,...rows];
+  return {rows, focal}; }
+function factorLabel(k){ const u=UNITS[S.unit]; if(k==="__out") return u.outcome.label; const f=u.factors.find(f=>f.key===k); return f?f.label:k; }
+function erf(x){ const t=1/(1+0.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
+function Phi(x){ return 0.5*(1+erf(x/Math.SQRT2)); }
+function tcrit(df){ const T=[0,12.71,4.30,3.18,2.78,2.57,2.45,2.36,2.31,2.26,2.23,2.20,2.18,2.16,2.14,2.13,2.12,2.11,2.10,2.09,2.09]; return df<1?Infinity:df<=20?T[df]:df<=30?2.04:df<=60?2.00:1.96; }
+function focalSEof(r){ return (S.unit==="county"&&r&&r.unins_lo!=null&&r.unins_hi!=null)?(r.unins_hi-r.unins_lo)/3.92:0; }
+// uncertainty + power block. gap = focal - peer mean; peerSE = SE of the peer mean; sdp = spread of peers; n = peers used
+function uncertaintyHTML(gap, peerSE, focalSE, sdp, n, o={}){
+  if(gap==null||!isFinite(gap)) return "";
+  const tot=Math.sqrt(peerSE*peerSE+focalSE*focalSE); const tc=tcrit(n-1); const lo=gap-tc*tot, hi=gap+tc*tot;
+  const mdg=(tc+0.84)*tot; const pw=tot>0?Phi(Math.abs(gap)/tot-tc):null;
+  const tgt=S.tgt; const need=(tgt/2.8)**2-focalSE*focalSE; const nNeed=need>0?Math.max(2,Math.ceil((sdp*sdp)/need)):null;
+  const unitLab=o.unitLabel||"peers";
+  const sel=`<select id="tgtSel">${[1,2,3,5,10].map(v=>`<option value="${v}" ${S.tgt===v?'selected':''}>${v}</option>`).join("")}</select>`;
+  let rows=`<tr><td><abbr title="${o.seTip||"Spread of the peers' outcomes divided by the square root of their number. More peers, or more alike peers, shrink it."}">Noise in the ${unitLab.replace(/s$/,'')} mean</abbr> (SE)</td><td>± ${fmt(peerSE,2)}</td></tr>`;
+  rows+=`<tr><td><abbr title="${focalSE?'From the published interval for the focal value (PLACES 95% interval converted to a standard error: (high − low) ÷ 3.92).':'The focal value is treated as exact; simulated data have no published margin of error.'}">Noise in the focal value</abbr> (SE)</td><td>${focalSE?'± '+fmt(focalSE,2):'none assumed'}</td></tr>`;
+  rows+=`<tr><td><abbr title="2.8 standard errors: the gap size that a test at the 5% level would detect 80% of the time with this setup.">Smallest gap this setup could reliably detect</abbr></td><td>${fmt(mdg)} points</td></tr>`;
+  rows+=`<tr><td><abbr title="Probability that a gap of the observed size would be judged different from zero at the 5% level, given the noise above. This restates the gap-to-noise ratio (it is 50% whenever the interval just touches zero); it is not extra evidence that the gap is real.">Chance of detecting the observed gap</abbr></td><td>${pw==null?'–':Math.round(100*pw)+'%'}</td></tr>`;
+  if(!o.hideNeed) rows+=`<tr><td>${unitLab.charAt(0).toUpperCase()+unitLab.slice(1)} needed to detect a gap of ${sel} points</td><td>${nNeed==null?'<abbr title="The focal value\'s own noise alone (2.8 × its SE) already exceeds the target gap, so no number of peers reaches it.">not reachable</abbr>':nNeed.toLocaleString()}</td></tr>`;
+  if(o.placebo) rows+=`<tr><td><abbr title="The simulator treats every other candidate as the focal unit in turn and compares it with its own peers, then counts how many show a gap at least as large as the focal unit's. The p-value is (count + 1) ÷ (candidates + 1), so it has a floor of 1 ÷ (candidates + 1).">Placebo check</abbr></td><td>${o.placebo.count} of ${o.placebo.n} other candidates show a gap this large (p = ${fmt((o.placebo.count+1)/(o.placebo.n+1),2)})</td></tr>`;
+  if(o.extraRows) rows+=o.extraRows;
+  return `<div class="ci">95% interval for the gap: <b>${(lo>0?'+':'')+fmt(lo)} to ${(hi>0?'+':'')+fmt(hi)}</b>${lo<=0&&hi>=0?' (includes zero)':''}</div>
+  <details class="power" ${S.powerOpen?'open':''}><summary>Uncertainty and power</summary><table>${rows}</table><div class="muted" style="margin-top:4px">${o.note||'These are rules of thumb for a difference in means, and they assume the peers are a fair comparison. Use them to judge whether the setup can separate a real gap from noise; they do not replace a formal test.'}</div></details>`;
+}
+function gapBlock(focalV, peerVals, poolV, o={}){
+  let n=peerVals.length, pm=null, sdp=0, peerSE=0;
+  if(o.weights){ const w=o.weights; const sw=w.reduce((a,b)=>a+b,0)||1; pm=peerVals.reduce((s,v,i)=>s+w[i]*v,0)/sw; sdp=Math.sqrt(peerVals.reduce((s,v,i)=>s+w[i]*(v-pm)**2,0)/sw); peerSE=Math.sqrt(peerVals.reduce((s,v,i)=>s+(w[i]/sw)**2*(v-pm)**2,0)); n=Math.round(1/w.reduce((s,v)=>s+(v/sw)**2,0)); }
+  else if(n){ pm=mean(peerVals); sdp=n>1?sd(peerVals):0; peerSE=n>1?sdp/Math.sqrt(n):0; }
+  const gap=(focalV!=null&&pm!=null)?focalV-pm:null;
+  const big=`<div class="big"><div><div class="lab">Focal unit</div><div class="num coral">${fmt(focalV)}</div></div><div><div class="lab">${o.peerLabel||'Peer mean'} (${o.weights?'n<sub>eff</sub> = ':'n = '}${n})</div><div class="num">${fmt(pm)}</div></div><div><div class="lab">Gap</div><div class="num">${gap==null?'–':(gap>0?'+':'')+fmt(gap)}</div></div>${o.extra||''}</div>`;
+  return big+(n>1?uncertaintyHTML(gap, peerSE, o.focalSE||0, sdp, n, o):'');
+}
+function balanceChart(focal, peers, pool, keys){ pool=pool.filter(r=>r!==focal); const rows=keys.map(k=>{ const s=sd(pool.map(r=>r[k]))||1; return {label:factorLabel(k).replace(/ \(.*\)$/,''), pts:[{v:Math.abs(focal[k]-mean(pool.map(r=>r[k])))/s, cls:"navy", hollow:true, tip:"All candidates: SMD "+fmt(Math.abs(focal[k]-mean(pool.map(r=>r[k])))/s,2)}, ...(peers.length?[{v:Math.abs(focal[k]-mean(peers.map(r=>r[k])))/s, cls:"peer", tip:"Peers: SMD "+fmt(Math.abs(focal[k]-mean(peers.map(r=>r[k])))/s,2)}]:[])]}; });
+  const worst=peers.length?Math.max(...rows.map(r=>r.pts[1].v)):null;
+  return {svg: dotplotSVG({rows, xlab:"|standardized mean difference| from the focal unit", xlo:0, xhi:Math.max(1,Math.min(4,Math.max(...rows.flatMap(r=>r.pts.map(p=>p.v)))*1.1)), xlines:[{v:0.1,label:"0.10",color:"#2E7D4F"},{v:0.25,label:"0.25 (rules of thumb)",color:"#C98F00"}]}), worst}; }
+function specCurve(rows, focal, keys, opts){ // vary k and drop-one factor; returns svg + range
+  const ks=[...new Set([5,10,15,20,S.k])].sort((a,b)=>a-b); const sets=[keys, ...keys.map(k=>keys.filter(x=>x!==k))].filter(s=>s.length>=1); const out=[]; const fi=rows.indexOf(focal); const ok=UNITS[S.unit].outcome.key;
+  sets.forEach((set,si)=>{ const {z}=zscores(rows,set); const d=distances(z,fi,S.dist==="euclidean"?"euclidean":"mahalanobis"); const order=rows.map((r,i)=>i).filter(i=>i!==fi).sort((a,b)=>d[a]-d[b]); const calBinds=S.caliper>0&&order.filter(i=>d[i]<=S.caliper).length<S.k;
+    ks.forEach(k=>{ const peers=order.slice(0,k).map(i=>rows[i]); const pm=mean(peers.map(r=>r[ok])); const se=peers.length>1?sd(peers.map(r=>r[ok]))/Math.sqrt(peers.length):0; const tc=tcrit(peers.length-1); out.push({label:(si?'drop '+factorLabel(keys[si-1]).replace(/ \(.*\)$/,''):'all factors')+`, k = ${k}`, gap:focal[ok]-pm, lo:focal[ok]-pm-tc*se, hi:focal[ok]-pm+tc*se, base:si===0, cur:si===0&&k===S.k&&!calBinds}); }); });
+  out.sort((a,b)=>a.gap-b.gap); const gaps=out.map(o=>o.gap);
+  const W=560,H=250,m={l:40,r:16,t:28,b:44}; let xlo=Math.min(0,...out.map(o=>o.lo)), xhi=Math.max(0,...out.map(o=>o.hi)); const pad=(xhi-xlo)*0.06||1; xlo-=pad; xhi+=pad;
+  const xs=v=>m.l+(v-xlo)/(xhi-xlo)*(W-m.l-m.r), ys=i=>m.t+(i+0.5)/out.length*(H-m.t-m.b);
+  let svg=`<svg viewBox="0 0 ${W} ${H}"><g class="axis">`; niceTicks(xlo,xhi).forEach(v=>{svg+=`<line x1="${xs(v)}" x2="${xs(v)}" y1="${m.t}" y2="${H-m.b}" stroke="#EEF0F3"/><text x="${xs(v)}" y="${H-m.b+16}" text-anchor="middle">${v}</text>`;});
+  svg+=`<line x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}"/><text x="${(m.l+W-m.r)/2}" y="${H-6}" text-anchor="middle" style="fill:#1F2733;font-size:12.5px">Gap: focal minus peer mean</text></g>`;
+  svg+=`<line x1="${xs(0)}" x2="${xs(0)}" y1="${m.t}" y2="${H-m.b}" stroke="#61686E" stroke-dasharray="3,3"/><text class="ann" x="${xs(0)+4}" y="${m.t-6}" style="fill:#61686E;font-size:11px">no gap</text>`;
+  svg+=`<text class="lbl" transform="translate(12,${(m.t+H-m.b)/2}) rotate(-90)" text-anchor="middle">setups, sorted</text>`;
+  out.forEach((o,i)=>{ const y=ys(i); svg+=`<line x1="${xs(o.lo)}" x2="${xs(o.hi)}" y1="${y}" y2="${y}" stroke="#C3C8CF" stroke-width="1.5"/>`;
+    svg+=`<circle class="mark" cx="${xs(o.gap)}" cy="${y}" r="${o.cur?7:5}" fill="${o.cur?'#E4573A':o.base?'#001D3D':'#0C55A5'}" stroke="#fff" stroke-width="1.5" data-tip="${esc(o.label)}: gap ${fmt(o.gap)} (95% interval ${fmt(o.lo)} to ${fmt(o.hi)})"/>`; });
+  svg+=`</svg>`;
+  return {svg, lo:Math.min(...gaps), hi:Math.max(...gaps), n:out.length}; }
+function placeboGaps(rows, keys, k, mode, caliper){ // each unit as focal, same pool; returns gaps
+  const ok=UNITS[S.unit].outcome.key; const {z}=zscores(rows,keys); const n=z.length, p=keys.length; const Si=mode==="mahalanobis"?inverse(covariance(z)):null; const gaps=[];
+  for(let i=0;i<n;i++){ const d=new Float64Array(n); for(let r=0;r<n;r++){ let sum=0; if(Si){ for(let a=0;a<p;a++){ let t=0; const ea=z[r][a]-z[i][a]; for(let b=0;b<p;b++) t+=(z[r][b]-z[i][b])*Si[b][a]; sum+=t*ea; } } else { for(let a=0;a<p;a++){ const e=z[r][a]-z[i][a]; sum+=e*e; } } d[r]=Math.sqrt(Math.max(0,sum)); }
+    const idx=[]; for(let r=0;r<n;r++) if(r!==i) idx.push(r); idx.sort((a,b)=>d[a]-d[b]); let sel=idx.slice(0,k); if(caliper>0) sel=sel.filter(r=>d[r]<=caliper); if(sel.length<2){ gaps.push(null); continue; }
+    gaps.push(rows[i][ok]-mean(sel.map(r=>rows[r][ok]))); }
+  return gaps; }
+function trapNote(extra){ const u=UNITS[S.unit]; const trap=u.factors.find(f=>f.trap&&S.factors.includes(f.key)); if(!trap) return [];
+  let txt=`“${trap.label.replace(' (a proxy of the outcome!)','')}” is a stand-in for the outcome. Peers chosen on it are picked partly for having the same outcome, so the comparison is circular. The more weight the proxy gets (fewer other factors, Euclidean distance), the closer the gap moves to zero.`;
+  if(extra&&extra.withTrap!=null&&extra.without!=null) txt+=` Here: gap ${(extra.withTrap>0?'+':'')+fmt(extra.withTrap)} with the proxy vs ${(extra.without>0?'+':'')+fmt(extra.without)} without it.`;
+  txt+=' Factors should be inputs that drive the outcome, chosen before looking at it.';
+  return [{type:"warn", title:"You are matching on the outcome", text:txt, ref:[1,12]}]; }
+function fewNote(n){ return n<5?[{type:"warn", title:"Too few peers", text:`${n===0?'No candidates':'Only '+n+' candidate'+(n===1?'':'s')} survived the restrictions. A mean of fewer than 5 units is mostly noise; loosen the candidate restrictions or the caliper, or report that no adequate peers exist.`, ref:[3]}]:[]; }
+
+// =====================================================================================
+// METHOD VIEWS
+// =====================================================================================
+const VIEWS = {};
+VIEWS.knn = function(){
+  const u=UNITS[S.unit]; const ok=u.outcome.key; const {rows, focal}=poolRows(); const keys=S.factors.length?S.factors:[u.factors[0].key];
+  const fi=rows.indexOf(focal); const {z}=zscores(rows,keys); const d=distances(z,fi,S.dist==="euclidean"?"euclidean":"mahalanobis");
+  let order=rows.map((r,i)=>i).filter(i=>i!==fi).sort((a,b)=>d[a]-d[b]); if(S.caliper>0) order=order.filter(i=>d[i]<=S.caliper);
+  const peerIdx=order.slice(0,S.k); const peers=peerIdx.map(i=>rows[i]); const peerSet=new Set(peers.map(p=>p.id));
+  const pm=peers.length?mean(peers.map(r=>r[ok])):null; const poolMean=mean(rows.filter(r=>r!==focal).map(r=>r[ok]));
+  const d10=order.length>=S.k?d[peerIdx[peerIdx.length-1]]:null;
+  const xk=S.x||keys[0], yk=S.y||"__out"; const gx=r=>r[xk], gy=r=>yk==="__out"?r[ok]:r[yk];
+  const pts=rows.map((r,i)=>({x:gx(r), y:gy(r), cls:r===focal?"focal":peerSet.has(r.id)?"peer":"pool", tip:`${r.name}: ${factorLabel(yk)} ${fmt(gy(r))}; distance ${fmt(d[i],2)}`}));
+  const ref=yk==="__out"?[{y:pm,color:"#0C55A5",label:"peer mean "+fmt(pm)},{y:poolMean,color:"#61686E",label:"all candidates "+fmt(poolMean)}]:[];
+  const c1=chartBox("Who are the peers?", `${S.caliper&&peers.length<S.k?`${peers.length} of the ${S.k} nearest to ${esc(focal.name)} on ${keys.length} factor${keys.length>1?'s':''} fall inside the caliper`:`${S.k} nearest to ${esc(focal.name)} on ${keys.length} factor${keys.length>1?'s':''}${S.caliper?', inside the caliper':''}`}`,
+    scatterSVG({pts, xlab:factorLabel(xk), ylab:factorLabel(yk), refLines:ref})+legend([["focal","Focal unit"],["peer","Peers"],["pool","Other candidates"]])+howto("The square is the focal unit. Blue dots are its peers on <i>all</i> chosen factors, so some can look far away on the two axes shown. Use ‘Chart axes’ in the controls to view other factors."));
+  const c2=chartBox("What is the answer?", "The focal unit against its peers on the outcome",
+    (()=>{ const pg=rows.length<=1200?placeboGaps(rows, keys, S.k, S.dist==="euclidean"?"euclidean":"mahalanobis", S.caliper):null; const g=pm==null?null:focal[ok]-pm; const valid=pg?pg.filter((v,i)=>v!=null&&i!==fi):[]; const placebo=(pg&&g!=null&&valid.length>10)?{count:valid.filter(v=>Math.abs(v)>=Math.abs(g)).length, n:valid.length}:null;
+      return gapBlock(focal[ok], peers.map(r=>r[ok]), poolMean, {focalSE:focalSEof(focal), placebo}); })()+barsSVG({items:[{label:"Focal unit",v:focal[ok],color:"#E4573A"},{label:"Peer mean",v:pm||0,color:"#0C55A5"},{label:"All candidates",v:poolMean,color:"#8E95A0"}], ylab:u.outcome.label, H:220})+howto("The gap between the first two bars is the result. The third bar is the comparison you would make with no peers. Open ‘Uncertainty and power’ to check whether this gap is larger than the noise."));
+  const bal=balanceChart(focal, peers, rows, keys);
+  const c3=chartBox("How close are the peers?", "Balance on each factor: smaller is closer", bal.svg+legend([["navy","All candidates (hollow)"],["peer","Peers"]])+howto("Each row is one factor. The hollow dot is the focal unit's distance from the average candidate; the filled dot is its distance from the peer average. Filled dots left of 0.25 mean the peers match on that factor."));
+  const spec=specCurve(rows, focal, keys); const c4=chartBox("How stable is the answer?", `Across ${spec.n} setups (other k, one factor dropped) the gap ranges from <b>${fmt(spec.lo)}</b> to <b>${fmt(spec.hi)}</b>${S.caliper&&peers.length<S.k?'; these setups ignore the caliper, so your current setup is not among them':''}`, spec.svg+legend([["focal","Your current setup"],["navy","All factors, other k"],["peer","One factor dropped"]])+howto("Each dot is one setup, sorted by its gap; the gray bar is a 95% interval. If dots straddle zero or spread widely, report the range rather than one number."));
+  let trapExtra=null; const trapKey=u.factors.filter(f=>f.trap).map(f=>f.key).find(k=>keys.includes(k));
+  if(trapKey&&keys.length>1){ const k2=keys.filter(k=>k!==trapKey); const z2=zscores(rows,k2).z; const d2=distances(z2,fi,S.dist==="euclidean"?"euclidean":"mahalanobis"); let o2=rows.map((r,i)=>i).filter(i=>i!==fi).sort((a,b)=>d2[a]-d2[b]); if(S.caliper>0) o2=o2.filter(i=>d2[i]<=S.caliper); const p2=o2.slice(0,S.k).map(i=>rows[i]); trapExtra={withTrap:pm==null?null:focal[ok]-pm, without:p2.length?focal[ok]-mean(p2.map(r=>r[ok])):null}; }
+  const notes=[...trapNote(trapExtra), ...fewNote(peers.length)];
+  if(d10!=null&&d10>Math.max(...d.filter((v,i)=>i!==fi))*0.6) notes.push({type:"caveat", title:"The focal unit is unusual", text:`The farthest of its ${S.k} peers is ${fmt(d10,1)} distance units away, far by this pool's standard. The peers are only the least-bad matches available; say so in the report.`, ref:[3]});
+  if(bal.worst>0.25) notes.push({type:"caveat", title:"Imbalance on at least one factor", text:`The worst factor still differs by ${fmt(bal.worst,2)} standard deviations after matching. Show this balance chart next to the gap.`, ref:[4]});
+  if(S.dist==="euclidean"&&keys.length>2) notes.push({type:"info", title:"Euclidean vs Mahalanobis", text:"Euclidean distance counts correlated factors twice (in counties, median age and the 65+ share move together). Mahalanobis discounts that overlap; compare the peer list under both.", ref:[2]});
+  if(S.unit==="county"&&focal.id==="48479") notes.push({type:"info", title:"Real-data reference case", text:"Webb County: the strict metro-and-border stratum contains only 5 candidates, so the worked example in the peerpick help stratifies on metro status only and lets border status enter through the Hispanic-share factor. Only four other Texas metro counties are above 80% Hispanic.", ref:[11]});
+  notes.push({type:"info", title:"What this method assumes", text:"The method assumes that units alike on the chosen factors are comparable. The peer set changes with the factor list, with k, and with the caliper, so the ‘How stable is the answer?’ chart is part of the result.", ref:[2,3]});
+  return {charts:[c1,c2,c3,c4], notes, pin:{setup:`${mt().name}: ${keys.length} factors, k=${S.k}${S.caliper?', caliper '+S.caliper:''}${Object.values(S.strata).some(Boolean)?', strata':''}${S.dist==='euclidean'?', Euclidean':''}`, n:peers.length, focal:focal[ok], peer:pm, gap:pm==null?null:focal[ok]-pm, smd:bal.worst}};
+};
+function mt(){ return METHODS.find(x=>x.key===S.method); }
+
+VIEWS.typology = function(){
+  const u=UNITS[S.unit]; const ok=u.outcome.key; const {rows, focal}=poolRows(); const keys=(S.factors.length?S.factors:[u.factors[0].key]).slice(0,2); if(keys.length<2) keys.push(u.factors.find(f=>f.key!==keys[0]).key);
+  const nb=S.bins; const cuts=keys.map(k=>{ const v=rows.map(r=>r[k]).sort((a,b)=>a-b); return Array.from({length:nb-1},(_,i)=>v[Math.floor((i+1)/nb*v.length)]); });
+  const binOf=(r,j)=>cuts[j].filter(c=>r[keys[j]]>=c).length; const cellOf=r=>binOf(r,0)+"-"+binOf(r,1);
+  const fc=cellOf(focal); const peers=rows.filter(r=>r!==focal&&cellOf(r)===fc); const pm=peers.length?mean(peers.map(r=>r[ok])):null; const poolMean=mean(rows.filter(r=>r!==focal).map(r=>r[ok]));
+  const counts={}; rows.forEach(r=>{const c=cellOf(r); counts[c]=(counts[c]||0)+1;});
+  let tbl=`<table class="cells"><tr><th></th>${Array.from({length:nb},(_,j)=>`<th>${factorLabel(keys[0]).split(' (')[0]} band&nbsp;${j+1}</th>`).join("")}</tr>`;
+  for(let i=nb-1;i>=0;i--){ tbl+=`<tr><th>${factorLabel(keys[1]).split(' (')[0]} band&nbsp;${i+1}</th>`; for(let j=0;j<nb;j++){ const c=j+"-"+i; const n=counts[c]||0; tbl+=`<td class="${c===fc?'focal':''} ${n<6?'thin':''}" data-tip="${n} units in this cell">${n}</td>`; } tbl+=`</tr>`; }
+  tbl+=`</table>`;
+  const c1=chartBox("Which cell is the focal unit in?", `Bands are equal-count (quantile) cuts on the first two factors (${factorLabel(keys[0]).split(' (')[0]} × ${factorLabel(keys[1]).split(' (')[0]})`, tbl+howto("Units in a cell share a band on both factors. The coral cell contains the focal unit; every other unit in it is a peer. Red numbers mark cells under 6 units, which you fold into a neighboring cell."));
+  const c2=chartBox("What is the answer?", "Focal unit against everyone in its cell", gapBlock(focal[ok], peers.map(r=>r[ok]), poolMean, {focalSE:focalSEof(focal), peerLabel:"Cell mean"})+barsSVG({items:[{label:"Focal unit",v:focal[ok],color:"#E4573A"},{label:"Cell mean",v:pm||0,color:"#0C55A5"},{label:"All candidates",v:poolMean,color:"#8E95A0"}], ylab:u.outcome.label, H:220}));
+  const xk=keys[0], yk=keys[1]; const peerSet=new Set(peers.map(p=>p.id));
+  const pts=rows.map(r=>({x:r[xk], y:r[yk], cls:r===focal?"focal":peerSet.has(r.id)?"peer":"pool", tip:`${r.name}: ${u.outcome.label} ${fmt(r[ok])}`}));
+  const c3=chartBox("The same cells, as a map", "Dashed lines are the band cuts", scatterSVG({pts, xlab:factorLabel(xk), ylab:factorLabel(yk), refLines:[...cuts[0].map(c=>({x:c,color:"#C98F00"})), ...cuts[1].map(c=>({y:c,color:"#C98F00"}))]})+legend([["focal","Focal unit"],["peer","Same cell (peers)"],["pool","Other units"]])+howto("Peers in a cell can be far apart inside it, and a unit just across a line is excluded. A stable, nameable group comes at that cost in precision."));
+  const bal=balanceChart(focal, peers, rows, S.factors.length?S.factors:keys);
+  const c4=chartBox("How close are the peers?", "Balance on each chosen factor", bal.svg+legend([["navy","All candidates"],["peer","Cell peers"]]));
+  const notes=[...trapNote(), ...fewNote(peers.length)];
+  notes.push({type:"info", title:"Stable but blunt", text:"A typology fixes the groups until the next refresh, which dashboards need. The cost is coarseness: distance inside a cell is ignored. Pair it with a distance ranking inside the cell.", ref:[5,6]});
+  const thinN=nb*nb-Object.values(counts).filter(n=>n>=6).length; if(nb>=5&&thinN>0) notes.push({type:"caveat", title:"Many bands, thin cells", text:"With "+nb+" bands per factor there are "+(nb*nb)+" cells; "+thinN+(thinN===1?" contains":" contain")+" fewer than 6 units. Fold thin cells into a neighbor and document the fold rule.", ref:[5]});
+  return {charts:[c1,c2,c3,c4], notes, pin:{setup:`Typology cells: ${nb} bands on ${factorLabel(keys[0]).split(' (')[0]} × ${factorLabel(keys[1]).split(' (')[0]}`, n:peers.length, focal:focal[ok], peer:pm, gap:pm==null?null:focal[ok]-pm, smd:bal.worst}};
+};
+
+VIEWS.cem = function(){
+  const u=UNITS[S.unit]; const ok=u.outcome.key; const {rows, focal}=poolRows(); const keys=S.factors.length?S.factors:[u.factors[0].key]; const nb=S.bins;
+  const cuts=keys.map(k=>{ const v=rows.map(r=>r[k]).sort((a,b)=>a-b); return Array.from({length:nb-1},(_,i)=>v[Math.floor((i+1)/nb*v.length)]); });
+  const cellOf=r=>keys.map((k,j)=>cuts[j].filter(c=>r[k]>=c).length).join("-"); const fc=cellOf(focal); const cell=rows.filter(r=>r!==focal&&cellOf(r)===fc);
+  const fi=rows.indexOf(focal); const {z}=zscores(rows,keys); const d=distances(z,fi,"euclidean");
+  const ranked=cell.map(r=>({r, d:d[rows.indexOf(r)]})).sort((a,b)=>a.d-b.d); const peers=ranked.slice(0,S.k).map(x=>x.r); const pm=peers.length?mean(peers.map(r=>r[ok])):null; const poolMean=mean(rows.filter(r=>r!==focal).map(r=>r[ok]));
+  const xk=S.x||keys[0], yk=(S.y&&S.y!=="__out"&&keys.includes(S.y))?S.y:(keys[1]||keys[0]); const peerSet=new Set(peers.map(p=>p.id)), cellSet=new Set(cell.map(p=>p.id));
+  const bx=keys.indexOf(xk), by=keys.indexOf(yk); const rects=[]; if(bx>=0&&by>=0){ const lo=(j,b)=>b===0?-1e9:cuts[j][b-1], hi=(j,b)=>b===nb-1?1e9:cuts[j][b]; const fbx=cuts[bx].filter(c=>focal[xk]>=c).length, fby=cuts[by].filter(c=>focal[yk]>=c).length;
+    const vx=rows.map(r=>r[xk]), vy=rows.map(r=>r[yk]); rects.push({x0:Math.max(lo(bx,fbx),Math.min(...vx)), x1:Math.min(hi(bx,fbx),Math.max(...vx)), y0:Math.max(lo(by,fby),Math.min(...vy)), y1:Math.min(hi(by,fby),Math.max(...vy))}); }
+  const pts=rows.map(r=>({x:r[xk], y:r[yk], cls:r===focal?"focal":peerSet.has(r.id)?"peer":cellSet.has(r.id)?"gold":"pool", tip:`${r.name}: ${u.outcome.label} ${fmt(r[ok])}`}));
+  const c1=chartBox("Who shares every bin, and who ranks closest?", `${cell.length===0?'No other unit shares':cell.length===1?'1 unit shares':cell.length+' units share'} the focal unit's bins on all ${keys.length} factors; ${peers.length===0?'there are no peers':peers.length===1?'that unit is the peer':'the '+peers.length+' closest are the peers'}`, scatterSVG({pts, xlab:factorLabel(xk), ylab:factorLabel(yk), rects})+legend([["focal","Focal unit"],["peer","Peers (ranked inside the cell)"],["gold","Rest of the cell"],["pool","Outside the cell"]])+howto("The dashed box is the focal unit's bin on these two axes (bins on the other factors also apply). Gold dots share every bin; blue dots are the k closest of those."));
+  const c2=chartBox("What is the answer?", "Focal unit against its ranked cell-mates", gapBlock(focal[ok], peers.map(r=>r[ok]), poolMean, {focalSE:focalSEof(focal)})+barsSVG({items:[{label:"Focal unit",v:focal[ok],color:"#E4573A"},{label:"Peer mean",v:pm||0,color:"#0C55A5"},{label:"Whole cell",v:cell.length?mean(cell.map(r=>r[ok])):0,color:"#C98F00"},{label:"All candidates",v:poolMean,color:"#8E95A0"}], ylab:u.outcome.label, H:220}));
+  const bal=balanceChart(focal, peers, rows, keys); const c3=chartBox("How close are the peers?", "Bins guarantee a ceiling on each factor's gap", bal.svg+legend([["navy","All candidates"],["peer","Peers"]]));
+  const sizes=[2,3,4,5,6].map(b=>{ const cc=keys.map(k=>{ const v=rows.map(r=>r[k]).sort((a,b)=>a-b); return Array.from({length:b-1},(_,i)=>v[Math.floor((i+1)/b*v.length)]); }); const co=r=>keys.map((k,j)=>cc[j].filter(c=>r[k]>=c).length).join("-"); const f=co(focal); return {label:b+" bands",v:rows.filter(r=>r!==focal&&co(r)===f).length,color:b===nb?"#E4573A":"#0C55A5"}; });
+  const c4=chartBox("How does the cell size change with the bands?", "More bands per factor: closer peers, but the cell empties out fast", barsSVG({items:sizes, ylab:"Units sharing the focal cell", H:240, dec:0})+howto("With several factors, each extra band multiplies the number of cells. The coral bar is your current setting. If the cell drops under about 8 units, widen one bin at a time."));
+  const notes=[...trapNote(), ...fewNote(cell.length)];
+  if(cell.length<8) notes.push({type:"caveat", title:"Thin cell", text:`${cell.length===0?'No other unit shares':cell.length===1?'Only 1 unit shares':'Only '+cell.length+' units share'} every bin. Widen one bin at a time, continuous factors first, and report the cell size.`, ref:[5]});
+  notes.push({type:"info", title:"Why bins first", text:"A bin guarantees every peer is within range on each factor; a distance alone balances the factors only on average, so one peer can be far on a single factor. The Texas Education Agency builds its comparison groups this way.", ref:[5,6]});
+  return {charts:[c1,c2,c3,c4], notes, pin:{setup:`Coarsened bins: ${nb} bands, ${keys.length} factors, k=${S.k}`, n:peers.length, focal:focal[ok], peer:pm, gap:pm==null?null:focal[ok]-pm, smd:bal.worst}};
+};
+
+VIEWS.pscore = function(){
+  const u=UNITS[S.unit]; const ok=u.outcome.key+"_policy"; const {rows}=poolRows(); const keys=S.factors.length?S.factors:[u.factors[0].key]; const cal=S.caliper||0.05;
+  const {z}=zscores(rows,keys); const y=rows.map(r=>r.adopt);
+  // logistic regression by Newton steps (few iterations)
+  const p=keys.length+1; let beta=Array(p).fill(0); const X=z.map(r=>[1,...r]);
+  for(let it=0;it<12;it++){ const pr=X.map(r=>1/(1+Math.exp(-r.reduce((s,v,j)=>s+v*beta[j],0)))); const g=Array(p).fill(0), H=Array.from({length:p},()=>Array(p).fill(0));
+    X.forEach((r,i)=>{ const w=pr[i]*(1-pr[i]); for(let a=0;a<p;a++){ g[a]+=r[a]*(y[i]-pr[i]); for(let b=0;b<p;b++) H[a][b]+=w*r[a]*r[b]; } }); for(let a=0;a<p;a++) H[a][a]+=1e-3; const Hi=inverse(H); beta=beta.map((b,a)=>b+Hi[a].reduce((s,v,j)=>s+v*g[j],0)); }
+  const ps=X.map(r=>1/(1+Math.exp(-r.reduce((s,v,j)=>s+v*beta[j],0))));
+  const A=rows.map((r,i)=>i).filter(i=>y[i]===1), C=rows.map((r,i)=>i).filter(i=>y[i]===0);
+  const lo=Math.max(Math.min(...A.map(i=>ps[i])),Math.min(...C.map(i=>ps[i]))), hi=Math.min(Math.max(...A.map(i=>ps[i])),Math.max(...C.map(i=>ps[i])));
+  // 1:1 nearest-neighbor matching with caliper, with replacement
+  let matched=[]; A.forEach(i=>{ if(ps[i]<lo||ps[i]>hi) return; let best=-1,bd=Infinity; C.forEach(j=>{const dd=Math.abs(ps[i]-ps[j]); if(dd<bd){bd=dd;best=j;}}); if(best>=0&&bd<=cal) matched.push([i,best]); });
+  const att = matched.length?mean(matched.map(([i,j])=>rows[i][ok]-rows[j][ok])):null; const naive=mean(A.map(i=>rows[i][ok]))-mean(C.map(i=>rows[i][ok]));
+  const c1=chartBox("Do adopters and non-adopters overlap?", `Propensity scores (each unit's estimated chance of adopting) from ${keys.length} factors; ${A.length} adopters, ${C.length} non-adopters`, histSVG({series:[{vals:C.map(i=>ps[i]),color:"#B9BEC6",name:"Non-adopters"},{vals:A.map(i=>ps[i]),color:"#E4573A",name:"Adopters"}], bins:20, xlab:"Estimated probability of adopting", xlines:[{v:lo,label:"common support"},{v:hi}]})+legend([["focal","Adopters"],["pool","Non-adopters"]])+howto("The score summarizes how adoption-prone each unit is. Matches are only made where the two histograms overlap (between the dashed lines)."));
+  const c2=chartBox("What is the estimated effect?", "Adopters minus their matched non-adopters", `<div class="big"><div><div class="lab">Matched estimate</div><div class="num coral">${att==null?'–':(att>0?'+':'')+fmt(att)}</div></div><div><div class="lab">Naive difference</div><div class="num" style="color:#61686E">${(naive>0?'+':'')+fmt(naive)}</div></div><div><div class="lab">Matched pairs</div><div class="num">${matched.length} / ${A.length}</div></div></div>`+(matched.length>1?(()=>{ const diffs=matched.map(([i,j])=>rows[i][ok]-rows[j][ok]); return uncertaintyHTML(att, sd(diffs)/Math.sqrt(diffs.length), 0, sd(diffs), diffs.length, {unitLabel:"pairs", seTip:'Spread of the pair differences (adopter minus its match) divided by the square root of the number of pairs.', note:"This interval treats each matched pair as independent and the matching as fixed; a bootstrap (resampling the matching step) would widen it somewhat."}); })():'')+barsSVG({items:[{label:"Matched estimate",v:att||0,color:"#E4573A"},{label:"Naive difference",v:naive,color:"#8E95A0"}], ylab:"Difference in "+u.outcome.label, H:220, yline:S.unit==="county"?-2:S.unit==="district"?3:2.5})+howto(`The dashed line is the true simulated effect (${S.unit==="county"?"−2":S.unit==="district"?"+3":"+2.5"} points). The naive difference mixes the effect with who chose to adopt; matching removes some of that.`));
+  // balance before/after on factors
+  const pool=rows; const rowsB=keys.map(k=>{ const s=sd(pool.map(r=>r[k]))||1; const before=Math.abs(mean(A.map(i=>rows[i][k]))-mean(C.map(i=>rows[i][k])))/s; const after=matched.length?Math.abs(mean(matched.map(([i])=>rows[i][k]))-mean(matched.map(([,j])=>rows[j][k])))/s:0; return {label:factorLabel(k).replace(/ \(.*\)$/,''), pts:[{v:before,cls:"navy",hollow:true,tip:"Before: "+fmt(before,2)},{v:after,cls:"peer",tip:"After: "+fmt(after,2)}]}; });
+  const worst=Math.max(...rowsB.map(r=>r.pts[1].v));
+  const c3=chartBox("Did matching balance the factors?", "Standardized differences, adopters vs comparison, before and after", dotplotSVG({rows:rowsB, xlab:"|standardized mean difference|", xlo:0, xhi:Math.max(0.3, 1.1*Math.max(...rowsB.flatMap(r=>r.pts.map(p=>p.v)))), xlines:[{v:0.1,label:"0.10",color:"#2E7D4F"},{v:0.25,label:"0.25",color:"#C98F00"}]})+legend([["navy","Before matching (hollow)"],["peer","After matching"]]));
+  const cals=[0.02,0.05,0.1,0.2,0.3].map(c=>{ let m=[]; A.forEach(i=>{ if(ps[i]<lo||ps[i]>hi) return; let best=-1,bd=Infinity; C.forEach(j=>{const dd=Math.abs(ps[i]-ps[j]); if(dd<bd){bd=dd;best=j;}}); if(best>=0&&bd<=c) m.push([i,best]); }); return {label:"caliper "+c, v:m.length?mean(m.map(([i,j])=>rows[i][ok]-rows[j][ok])):0, color:Math.abs(c-cal)<1e-9?"#E4573A":"#0C55A5", tip:m.length+" pairs"}; });
+  const c4=chartBox("How much does the caliper matter?", "The estimate under five calipers", barsSVG({items:cals, ylab:"Matched estimate", H:230})+howto("A tighter caliper keeps only close matches (fewer pairs, so less bias but more noise). If the estimate swings across calipers, report the range."));
+  const notes=[...trapNote()];
+  notes.push({type:"caveat", title:"The score alone does not guarantee balance", text:"Matching on the score alone can leave the groups less balanced on the factors themselves. Use the score for weighting, or as one of several distance features, and show the balance chart.", ref:[7,8,9]});
+  if(matched.length<0.6*A.length) notes.push({type:"caveat", title:"Many adopters went unmatched", text:`${A.length-matched.length} adopters had no non-adopter within the caliper or fell outside the common support. The estimate applies only to the matched ones.`, ref:[9]});
+  notes.push({type:"info", title:"Simulated policy flag", text:"The adoption flag is simulated: units with higher scores on the factors were more likely to adopt, and adopters received a fixed effect. In real data, adoption can also depend on things no factor records; the method assumes it does not.", ref:[7]});
+  return {charts:[c1,c2,c3,c4], notes, pin:{setup:`Propensity score: ${keys.length} factors, caliper ${cal}`, n:matched.length, focal:A.length?mean(A.map(i=>rows[i][ok])):null, peer:matched.length?mean(matched.map(([,j])=>rows[j][ok])):null, gap:att, smd:worst}};
+};
+
+VIEWS.predicted = function(){
+  const u=UNITS[S.unit]; const ok=u.outcome.key; const {rows, focal}=poolRows(); const keys=S.factors.length?S.factors:[u.factors[0].key];
+  const X=rows.map(r=>keys.map(k=>r[k])); const y=rows.map(r=>r[ok]); const fit=ols(X,y); const fi=rows.indexOf(focal);
+  const band=S.band; const peers=rows.filter((r,i)=>i!==fi&&Math.abs(fit.yhat[i]-fit.yhat[fi])<=band); const pm=peers.length?mean(peers.map(r=>r[ok])):null;
+  const t=1.96*fit.sigma; const cls=i=>fit.resid[i]>t?"above":fit.resid[i]<-t?"below":"within"; const counts={above:0,within:0,below:0}; rows.forEach((r,i)=>counts[cls(i)]++);
+  const peerSet=new Set(peers.map(p=>p.id));
+  const pts=rows.map((r,i)=>({x:fit.yhat[i], y:r[ok], cls:r===focal?"focal":peerSet.has(r.id)?"peer":cls(i)==="within"?"pool":"gold", tip:`${r.name}: predicted ${fmt(fit.yhat[i])}, actual ${fmt(r[ok])} (${cls(i)} expected)`}));
+  const lo=Math.min(...fit.yhat), hi=Math.max(...fit.yhat);
+  const c1=chartBox("Actual vs predicted", `Outcome predicted by regression from ${keys.length} factor${keys.length>1?'s':''}; R² (share of variation explained) = ${fmt(1-fit.resid.reduce((s,e)=>s+e*e,0)/y.reduce((s,v)=>s+(v-mean(y))**2,0),2)}`,
+    scatterSVG({pts, xlab:"Predicted "+u.outcome.label, ylab:"Actual "+u.outcome.label, lines:[{pts:[[lo,lo],[hi,hi]],color:"#001D3D"},{pts:[[lo,lo+t],[hi,hi+t]],color:"#B9BEC6",dash:"4,3",w:1.5},{pts:[[lo,lo-t],[hi,hi-t]],color:"#B9BEC6",dash:"4,3",w:1.5}], rects:[{x0:fit.yhat[fi]-band,x1:fit.yhat[fi]+band,y0:Math.min(...y),y1:Math.max(...y)}]})+legend([["focal","Focal unit"],["peer","Peers (same predicted value)"],["gold","Above or below the 95% band"],["pool","Within the 95% band"]])+howto("The diagonal is ‘actual equals predicted’; the dashed lines mark the 95% band around it. Peers are the units inside the gold strip (the peer band set in the controls): their inputs predict the same outcome as the focal unit's, even if each input differs."));
+  const c2=chartBox("What is the answer?", "Focal unit against units with the same prediction", gapBlock(focal[ok], peers.map(r=>r[ok]), mean(y), {focalSE:focalSEof(focal), extra:`<div><div class="lab">Predicted for focal</div><div class="num" style="color:#0C55A5">${fmt(fit.yhat[fi])}</div></div><div><div class="lab">Residual</div><div class="num" style="color:${fit.resid[fi]>t?'#2E7D4F':fit.resid[fi]<-t?'#B3261E':'#61686E'}">${(fit.resid[fi]>0?'+':'')+fmt(fit.resid[fi])}</div></div>`})+howto(`The residual is the focal unit's actual minus predicted value. Beyond ±${fmt(t)} it is an over- or under-performer; inside, it is doing about what its inputs predict.`));
+  const c3=chartBox("Who beats or misses their prediction?", "Counts by residual band", barsSVG({items:[{label:"Above expected",v:counts.above,color:"#2E7D4F"},{label:"Within band",v:counts.within,color:"#8E95A0"},{label:"Below expected",v:counts.below,color:"#B3261E"}], ylab:"Units", H:230, dec:0})+howto("If you cluster the ‘above expected’ group on its inputs, you can see what over-performers have in common. Treat that as a lead for fieldwork, since the clustering cannot say why they over-perform."));
+  const bands=[1,2,3,5,8].map(b=>{ const p=rows.filter((r,i)=>i!==fi&&Math.abs(fit.yhat[i]-fit.yhat[fi])<=b); return {label:"± "+b, v:p.length?focal[ok]-mean(p.map(r=>r[ok])):0, color:b===band?"#E4573A":"#0C55A5", tip:p.length+" peers"}; });
+  const c4=chartBox("How much does the band matter?", "The gap under five band widths", barsSVG({items:bands, ylab:"Gap: focal minus peer mean", H:230})+howto("A narrow band gives few, close peers; a wide one gives many, looser peers. A stable gap across bands is reassuring."));
+  const notes=[...trapNote(), ...fewNote(peers.length)];
+  notes.push({type:"info", title:"Why use a predicted value", text:"When inputs are rich and predictive, as in the federal IPEDS college data, the fitted value is a better one-number summary than any single input. The band around it is the peer definition.", ref:[10]});
+  notes.push({type:"caveat", title:"Descriptive only", text:"Residual bands describe who beats their prediction; they do not say why. With a known policy, use a causal design instead.", ref:[10,3]});
+  return {charts:[c1,c2,c3,c4], notes, pin:{setup:`Predicted-value peers: ${keys.length} factors, band ±${band}`, n:peers.length, focal:focal[ok], peer:pm, gap:pm==null?null:focal[ok]-pm, smd:balanceChart(focal,peers,rows,keys).worst}};
+};
+
+VIEWS.trajectory = function(){
+  const u=UNITS[S.unit]; const {rows, focal}=poolRows(); const fi=rows.indexOf(focal); let d;
+  if(S.dist==="params"){ const keys=S.factors.length?S.factors:["slope","vol","dip"]; const {z}=zscores(rows,keys); d=distances(z,fi,"mahalanobis"); }
+  else { d=rows.map(r=>Math.sqrt(r.path.reduce((s,v,t)=>s+(v-focal.path[t])**2,0))); }
+  const order=rows.map((r,i)=>i).filter(i=>i!==fi).sort((a,b)=>d[a]-d[b]); const peers=order.slice(0,S.k).map(i=>rows[i]); const pm=mean(peers.map(r=>r.growth)); const poolMean=mean(rows.filter(r=>r!==focal).map(r=>r.growth));
+  const yrs=Array.from({length:11},(_,t)=>2014+t);
+  const far=order.slice(-6).map(i=>rows[i]);
+  const series=[...far.map(r=>({name:r.name,color:"#D9DCE1",pts:yrs.map((y,t)=>[y,r.path[t]]),w:1.2})), ...peers.map(r=>({name:r.name,color:"#0C55A5",pts:yrs.map((y,t)=>[y,r.path[t]]),w:1.6,op:0.75})), {name:focal.name,color:"#E4573A",pts:yrs.map((y,t)=>[y,focal.path[t]]),w:4,label:focal.name}];
+  const c1=chartBox("Which paths look like the focal county's?", `${S.k} nearest paths by ${S.dist==="params"?(S.factors.length?S.factors:["slope","vol","dip"]).map(k=>factorLabel(k).replace(/ \(.*\)$/,'').toLowerCase()).join(", "):"distance on the whole indexed path"}`, linesSVG({series, xlab:"", ylab:"Jobs index (2014 = 100)", H:320})+legend([["focal","Focal county"],["peer","Peer paths"],["pool","Distant paths, for contrast"]])+howto("Each line is one county's jobs index. Peers are the paths that stay closest year by year (or that share the same slope, volatility, and 2020 dip)."));
+  const c2=chartBox("What is the answer?", "Growth 2014–2024, focal vs peers", gapBlock(focal.growth, peers.map(r=>r.growth), poolMean, {})+barsSVG({items:[{label:"Focal county",v:focal.growth,color:"#E4573A"},{label:"Peer mean",v:pm,color:"#0C55A5"},{label:"All counties",v:poolMean,color:"#8E95A0"}], ylab:"Jobs growth 2014–24 (%)", H:230})+howto("Matching on the path tends to make the end-point gap small by construction; the more useful readings are the timing of the dip and the recovery."));
+  const pts=rows.map((r,i)=>({x:r.slope,y:r.vol,cls:r===focal?"focal":peers.includes(r)?"peer":"pool",tip:`${r.name}: slope ${r.slope}%/yr, volatility ${r.vol}, 2020 dip ${r.dip}%`}));
+  const c3=chartBox("The same counties by slope and volatility", "Trend slope vs volatility", scatterSVG({pts, xlab:"Trend slope (%/yr)", ylab:"Volatility (SD of yearly growth)"})+legend([["focal","Focal county"],["peer","Peers"],["pool","Others"]])+howto("Switch ‘Match on’ in the controls to see whether path distance and parameter distance pick the same peers."));
+  const pathPeers=(()=>{const dd=rows.map(r=>Math.sqrt(r.path.reduce((s,v,t)=>s+(v-focal.path[t])**2,0))); return rows.map((r,i)=>i).filter(i=>i!==fi).sort((a,b)=>dd[a]-dd[b]).slice(0,S.k).map(i=>rows[i].id);})();
+  const parPeers=(()=>{const {z}=zscores(rows,["slope","vol","dip"]); const dd=distances(z,fi,"mahalanobis"); return rows.map((r,i)=>i).filter(i=>i!==fi).sort((a,b)=>dd[a]-dd[b]).slice(0,S.k).map(i=>rows[i].id);})();
+  const jac=jaccard(pathPeers,parPeers);
+  const c4=chartBox("Do the two definitions agree?", "Overlap between path peers and parameter peers", `<div class="big"><div><div class="lab">Jaccard overlap</div><div class="num ${jac<0.5?'coral':''}">${fmt(jac,2)}</div></div><div class="kv" style="max-width:300px">Shared peers divided by all peers named. Above 0.5 the two definitions mostly agree.</div></div>`+barsSVG({items:[{label:"Path peers",v:focal.growth-mean(pathPeers.map(id=>rows.find(r=>r.id===id).growth)),color:"#0C55A5"},{label:"Parameter peers",v:focal.growth-mean(parPeers.map(id=>rows.find(r=>r.id===id).growth)),color:"#C98F00"}], ylab:"Gap in 2014–24 growth", H:200}));
+  const notes=[{type:"info", title:"What ‘similar path’ can mean", text:"Whole-path distance matches the level every year; parameter distance matches the shape (slope, volatility, dip) and allows timing to differ. Dynamic time warping, which lines up paths whose booms arrive in different years, is another option.", ref:[13]}];
+  if(jac<0.5) notes.push({type:"caveat", title:"The definitions disagree", text:"Fewer than half the peers are shared between the two definitions, so the peer set depends on which notion of similarity you pick. Say which you used and why.", ref:[3]});
+  return {charts:[c1,c2,c3,c4], notes, pin:{setup:`Trajectory (${S.dist==="params"?"parameters":"whole path"}), k=${S.k}`, n:peers.length, focal:focal.growth, peer:pm, gap:focal.growth-pm, smd:null}};
+};
+
+VIEWS.cluster = function(){
+  const u=UNITS[S.unit]; const ok=u.outcome.key; const {rows, focal}=poolRows(); const keys=S.factors.length?S.factors:u.defaultFactors; const k=Math.min(S.kclust, Math.max(2,Math.floor(rows.length/2)));
+  const {z}=zscores(rows,keys); const km=kmeans(z,k,7); const fi=rows.indexOf(focal); const fc=km.lab[fi]; const peers=rows.filter((r,i)=>i!==fi&&km.lab[i]===fc); const pm=peers.length?mean(peers.map(r=>r[ok])):null;
+  const chs=[]; for(let kk=2;kk<=Math.min(8,Math.max(2,Math.floor(rows.length/2)));kk++){ chs.push({label:"k = "+kk, v:kmeans(z,kk,7).ch, color:kk===k?"#E4573A":"#0C55A5"}); }
+  const colors=["#0C55A5","#C98F00","#2E7D4F","#7A3E9D","#1B9AAA","#B3261E","#6B4F2A","#8E95A0"];
+  const xk=S.x||keys[0], yk=(S.y&&S.y!=="__out")?S.y:(keys[1]||keys[0]);
+  const pts=rows.map((r,i)=>({x:r[xk], y:yk==="__out"?r[ok]:r[yk], cls:r===focal?"focal":"other", tip:`${r.name}: group ${km.lab[i]+1}`, color:colors[km.lab[i]%8]}));
+  // custom coloring: build svg via scatterSVG then recolor by group (simple approach: separate series)
+  let svg=scatterSVG({pts:pts.map(p=>({...p, cls:p.cls==="focal"?"focal":"pool"})), xlab:factorLabel(xk), ylab:factorLabel(yk)});
+  // recolor pool circles by group order (same order as sorted pool pts)
+  const poolPts=pts.filter(p=>p.cls!=="focal"); let idx=0; svg=svg.replace(/<circle class="mark"([^>]*)fill="#C3C8CF"/g,(m0,a)=>{ const c=poolPts[idx++]; return `<circle class="mark"${a}fill="${c?c.color:'#C3C8CF'}" opacity="0.85"`; });
+  const groupLegend=`<div class="legend">${Array.from({length:k},(_,g)=>`<span style="--c:${colors[g]}">Group ${g+1} (${km.lab.filter(l=>l===g).length})${g===fc?' ← focal':''}</span>`).join("")}</div>`;
+  const c1=chartBox("Which group does the focal unit fall in?", `k-means with k = ${k} on ${keys.length} factors; two shown`, svg+groupLegend+howto("Colors are the groups the algorithm found. The focal unit's group members are its peers. Groups are only useful if you can describe each one in a sentence."));
+  const c2=chartBox("What is the answer?", "Focal unit against its group", gapBlock(focal[ok], peers.map(r=>r[ok]), mean(rows.filter(r=>r!==focal).map(r=>r[ok])), {focalSE:focalSEof(focal), peerLabel:"Group mean"})+barsSVG({items:Array.from({length:k},(_,g)=>g).filter(g=>km.lab.some(l=>l===g)).map(g=>({label:"Group "+(g+1), v:mean(rows.filter((r,i)=>km.lab[i]===g).map(r=>r[ok])), color:g===fc?"#E4573A":colors[g]})), ylab:u.outcome.label+" (group mean)", H:230})+howto("Group means show how different the types are on the outcome. The coral bar is the focal unit's group."));
+  const c3=chartBox("How many groups?", "Calinski–Harabasz index by k (higher = more compact, distinct groups)", barsSVG({items:chs, ylab:"Calinski–Harabasz pseudo-F", H:230})+howto("The tallest bar is the statistically preferred k. Treat it as a suggestion: a k whose groups you can name beats a slightly higher score."));
+  const prof=keys.map(kk=>({label:factorLabel(kk).replace(/ \(.*\)$/,''), pts:Array.from({length:k},(_,g)=>g).filter(g=>km.lab.some(l=>l===g)).map(g=>{ const v=mean(rows.filter((r,i)=>km.lab[i]===g).map(r=>(r[kk]-mean(rows.map(x=>x[kk])))/(sd(rows.map(x=>x[kk]))||1))); return {v, cls:g===fc?"focal":"navy", hollow:g!==fc, r:5, tip:`Group ${g+1}: ${fmt(v,2)} SD`}; })}));
+  const c4=chartBox("What makes each group different?", "Group means on each factor, in standard-deviation units", dotplotSVG({rows:prof, xlab:"Group mean (standard deviations from the overall mean)", xlines:[{v:0,color:"#61686E",dash:"2,3"}]})+legend([["focal","Focal unit's group"],["navy","Other groups (hollow)"]])+howto("Read across a row to see which groups are high or low on that factor. This is the raw material for naming the groups."));
+  const notes=[...trapNote()];
+  notes.push({type:"info", title:"Clustering sorts units into types", text:"Clustering answers ‘what kinds of units are there?’ rather than ‘who is most like this one?’. Inside a group, members can still differ; rank by distance within the group if you need a short list.", ref:[14,15]});
+  notes.push({type:"caveat", title:"Check stability", text:"Re-run with a different random start or after dropping a factor; groups that dissolve are noise. Compare with a hierarchical (Ward) solution before publishing.", ref:[14,16]});
+  return {charts:[c1,c2,c3,c4], notes, pin:{setup:`Clustering: k=${k}, ${keys.length} factors`, n:peers.length, focal:focal[ok], peer:pm, gap:pm==null?null:focal[ok]-pm, smd:null}};
+};
+
+VIEWS.fixedzones = function(){
+  const u=UNITS[S.unit]; const ok=u.outcome.key; const rows=DATA.region; const focal=rows.find(r=>r.id===S.focal); const keys=u.factors.map(f=>f.key);
+  const others=rows.filter(r=>r!==focal); const pm=mean(others.map(r=>r[ok]));
+  const c1=chartBox("Every zone on the outcome", "With 8 zones there is no room to select peers: show them all", dotplotSVG({rows:[...rows].sort((a,b)=>b[ok]-a[ok]).map(r=>({label:r.name, bar:r[ok], barColor:r===focal?"#E4573A":"#0C55A5", pts:[]})), xlab:u.outcome.label, xlo:0, W:560})+howto("Bars are the zones; the coral bar is the focal zone. Report the full ranking, with the factor gaps below as context."));
+  const gaps=keys.map(k=>{ const m=mean(rows.map(r=>r[k])), s=sd(rows.map(r=>r[k]))||1; return {label:factorLabel(k).replace(/ \(.*\)$/,''), pts:[{v:(focal[k]-m)/s, cls:"focal", tip:`${focal.name}: ${fmt((focal[k]-m)/s,2)} SD from the zone mean`}]}; });
+  const c2=chartBox("How does the focal zone differ from the others?", "Standardized gaps on each factor (0 = the average zone)", dotplotSVG({rows:gaps, xlab:"Standard deviations from the mean of the 8 zones", xlines:[{v:0,color:"#61686E",dash:"2,3"}]})+howto("Each dot is the focal zone's position on one factor relative to the others. A reader can see which differences might explain the outcome gap."));
+  const c3=chartBox("What is the answer?", "Focal zone against the average of the other seven", gapBlock(focal[ok], others.map(r=>r[ok]), null, {peerLabel:"Other zones", unitLabel:"zones", hideNeed:true})+howto("The ‘peer mean’ here is the mean of the other seven zones. Use county-level peers when a finer comparison is needed."));
+  const notes=[{type:"info", title:"The regulator picks the set", text:"When a grid operator, a state agency, or a workforce board defines the regions, the comparison set is given. Your work is then to build comparable features for each zone from county data, weighted by population or load.", ref:[3]},{type:"caveat", title:"Simulated zone features", text:"Zone values here are illustrative. In practice they come from county features rolled up through a county-to-zone crosswalk with weights.", ref:[]}];
+  return {charts:[c1,c2,c3], notes, pin:{setup:"Fixed zones (8 grid weather zones)", n:others.length, focal:focal[ok], peer:pm, gap:focal[ok]-pm, smd:null}};
+};
+
+VIEWS.synth = function(){
+  const rows=DATA.state; const focal=rows.find(r=>r.id==="Texas"); let donors=rows.filter(r=>r!==focal); if(S.pool==="sf11") donors=donors.filter(r=>SF11.includes(r.id)); if(S.pool==="big") donors=donors.filter(r=>BIG.includes(r.id)); if(S.strata.sunbelt) donors=donors.filter(r=>r.sunbelt);
+  const T0=S.treat-2010; const yrs=Array.from({length:15},(_,t)=>2010+t);
+  const Y0=yrs.slice(0,T0).map((_,t)=>donors.map(d=>d.path[t])); const y1=focal.path.slice(0,T0); const w=nnls(Y0,y1);
+  const synth=yrs.map((_,t)=>donors.reduce((s,d,j)=>s+w[j]*d.path[t],0));
+  const rmspe=Math.sqrt(mean(y1.map((v,t)=>(v-synth[t])**2))); const post=yrs.map((_,t)=>t).filter(t=>t>=T0&&(S.treat>=2019||t<9)); const effect=mean(post.map(t=>focal.path[t]-synth[t])); const trueEff=mean(post.map(t=>t>9?0.8*(t-9):0));
+  const postR=Math.sqrt(mean(post.map(t=>(focal.path[t]-synth[t])**2))); const ratioTX=postR/Math.max(rmspe,1e-6);
+  // placebo in space: each donor treated in turn, fitted on the remaining donors
+  const cacheKey=`${S.treat}|${S.pool}|${S.strata.sunbelt?1:0}|${donors.length}`; if(!VIEWS._synthCache) VIEWS._synthCache={};
+  const ratios=S.powerOpen?(VIEWS._synthCache[cacheKey]||(VIEWS._synthCache[cacheKey]=donors.map((dn,j)=>{ const oth=donors.filter((_,k)=>k!==j); const Y0p=yrs.slice(0,T0).map((_,t)=>oth.map(d=>d.path[t])); const wp=nnls(Y0p, dn.path.slice(0,T0)); const sp=yrs.map((_,t)=>oth.reduce((s,d,k)=>s+wp[k]*d.path[t],0)); const pre=Math.sqrt(mean(yrs.slice(0,T0).map((_,t)=>(dn.path[t]-sp[t])**2))); const po=Math.sqrt(mean(post.map(t=>(dn.path[t]-sp[t])**2))); return po/Math.max(pre,1e-6); }))):null;
+  const nBigger=ratios?ratios.filter(r=>r>=ratioTX).length:null; const pPlacebo=ratios?(nBigger+1)/(donors.length+1):null;
+  const c1=chartBox("Texas vs synthetic Texas", `Weights fit on 2010–${S.treat-1}; ${donors.length} donor states in the pool`, linesSVG({series:[{name:"Synthetic Texas",color:"#001D3D",pts:yrs.map((y,t)=>[y,synth[t]]),dash:"6,4",label:"synthetic"},{name:"Texas",color:"#E4573A",pts:yrs.map((y,t)=>[y,focal.path[t]]),w:3.5,label:"Texas"}], xlab:"", ylab:"Outcome index", vline:{x:S.treat,label:"event"}, H:320})+legend([["focal","Texas (actual)"],["line","Synthetic Texas (weighted donors)"]])+howto("Before the event the two lines should overlap; a close pre-event fit is what makes the estimate credible. After the event, the vertical gap is the estimated effect."));
+  const c2=chartBox("What is the estimate?", "Average gap after the event, and how closely the fit tracked Texas before it", `<div class="big"><div><div class="lab">Post-event gap</div><div class="num coral">${(effect>0?'+':'')+fmt(effect,2)}</div></div><div><div class="lab">Pre-event miss (RMSPE)</div><div class="num" style="color:${rmspe>1.5?'#B3261E':'#001D3D'}">${fmt(rmspe,2)}</div></div><div><div class="lab">True simulated effect</div><div class="num" style="color:#61686E">≈ ${trueEff>0?'+':''}${fmt(trueEff,1)}</div><div class="muted">${S.treat>=2019?'+0.8 per year from 2020, averaged over '+S.treat+'–24':'no effect before 2020; placebo window '+S.treat+'–2018'}</div></div></div><details class="power" ${S.powerOpen?'open':''}><summary>Uncertainty: placebo in space</summary><table><tr><td><abbr title="Root mean squared prediction error after the event divided by the same before it. A large ratio means the gap after the event is big relative to how well the fit tracked before it.">Texas post/pre error ratio</abbr></td><td>${fmt(ratioTX,1)}</td></tr><tr><td><abbr title="The simulator treats each donor state as if it had the event, fits it on the other donors, and computes its ratio. The count is how many donors show a ratio as large as Texas's.">Donors with a ratio at least as large</abbr></td><td>${ratios?nBigger+' of '+donors.length:'opening this panel runs the '+donors.length+' placebo fits'}</td></tr><tr><td><abbr title="(Donors at least as extreme + 1) divided by (donors + 1): the share of placebo runs that look like Texas. Below 0.10 is the usual bar, but the smallest value J donors can give is 1 ÷ (J + 1), so a pool of 9 can never fall below 0.10.">Placebo p-value</abbr></td><td>${ratios?fmt(pPlacebo,2)+' (floor '+fmt(1/(donors.length+1),2)+')':'–'}</td></tr></table><div class="muted" style="margin-top:4px">The standard synthetic-control inference: the effect is credible only if few placebo states produce a gap this large.</div></details>`+howto("RMSPE is the typical pre-event miss: here, under about 1 index point is a good fit, and above 1.5 the donors cannot reproduce Texas. For a placebo test, set the event year before 2019; the gap then covers only pre-2019 years and should be near zero."));
+  const top=donors.map((d,j)=>({label:d.name, v:w[j], color:"#0C55A5"})).sort((a,b)=>b.v-a.v).slice(0,8);
+  const c3=chartBox("Which states stand in for Texas?", "Donor weights (non-negative, sum to one)", dotplotSVG({rows:top.map(t=>({label:t.label, bar:t.v, pts:[]})), xlab:"Weight", xlo:0, xhi:1, xfmt:v=>v.toFixed(1)})+howto("The weighted donors are the ‘peer states’ a reader can name. Report them next to the estimate."));
+  const inSF=top.filter(t=>t.v>0.02&&SF11.includes(t.label)).length, nz=top.filter(t=>t.v>0.02).length;
+  const notes=[{type:"info", title:"Why weights instead of a list", text:"With one focal state and few candidates, the k nearest states each differ a lot; a weighted blend (non-negative weights that sum to one) can track Texas more closely than any short list, and it stays within the range of the real donors.", ref:[17,18]}];
+  if(rmspe>1.5) notes.push({type:"warn", title:"Poor pre-event fit", text:"Synthetic Texas does not track actual Texas before the event. Widen the pool or report that no usable comparison exists.", ref:[18]});
+  if(T0<6) notes.push({type:"caveat", title:"Too few pre-event years", text:`Only ${T0} years are available to fit the weights, and ${donors.length} donors can reproduce almost any ${T0}-year path exactly (RMSPE ${fmt(rmspe,2)}). The post/pre error ratio and the placebo p-value mean little with so short a fit window; use at least six pre-event years.`, ref:[18]});
+  if(S.treat>2020) notes.push({type:"caveat", title:"Event dated after the true change", text:`The simulated effect starts in 2020, so weights fit through ${S.treat-1} already absorb part of it and the estimate is pulled toward zero. The ‘true simulated effect’ shown is the average over ${S.treat}–24; the design can recover it only when the event is dated at or before 2020.`, ref:[18]});
+  if(S.treat<2019) notes.push({type:"caveat", title:"Placebo in time", text:"You moved the event before the true event year (2019; the simulated effect begins in 2020). A gap near zero here is what a sound design shows; a large gap would mean the method finds effects where none exist.", ref:[17]});
+  notes.push({type:"info", title:"Compared with the current convention", text:`${inSF} of the ${nz} donors with meaningful weight are on the Strategic Framework's list of eleven. This shows how far a data-driven set agrees with the fixed list.`, ref:[19]});
+  return {charts:[c1,c2,c3], notes, pin:{setup:`Synthetic control: event ${S.treat}, pool ${S.pool}`, n:nz, focal:focal.y2024, peer:synth[14], gap:effect, smd:rmspe}};
+};
+
+VIEWS.entropy = function(){
+  const u=UNITS.state; const ok=u.outcome.key; const {rows, focal}=poolRows(); const keys=S.factors.length?S.factors:u.defaultFactors; const others=rows.filter(r=>r!==focal);
+  const {z, means, sds}=zscores(rows,keys); const fi=rows.indexOf(focal); const zo=z.filter((_,i)=>i!==fi); const w=entropyWeights(zo, z[fi]);
+  const wm=others.reduce((s,r,i)=>s+w[i]*r[ok],0); const raw=mean(others.map(r=>r[ok]));
+  const top=others.map((r,i)=>({label:r.name, v:w[i]})).sort((a,b)=>b.v-a.v).slice(0,10);
+  const ess=1/w.reduce((s,v)=>s+v*v,0);
+  const c1=chartBox("Which states get the most weight?", `Weights chosen so the weighted average matches Texas on each of ${keys.length} factors`, dotplotSVG({rows:top.map(t=>({label:t.label, bar:t.v, pts:[]})), xlab:"Weight", xlo:0, xfmt:v=>v.toFixed(2)})+howto("Entropy balancing starts from equal weights and moves them as little as needed to make the weighted means match Texas on every factor. A few states end up with most of the weight."));
+  const c2=chartBox("What is the answer?", "Texas against the reweighted states", gapBlock(focal[ok], others.map(r=>r[ok]), raw, {weights:w, hideNeed:true, seTip:'Standard error of the weighted mean with the weights treated as fixed: the square root of the sum of (weight × deviation)². Weight concentrated on a few states makes it larger.', peerLabel:"Weighted mean", unitLabel:"states", extra:`<div><div class="lab">Effective # of states</div><div class="num" style="color:${ess<5?'#B3261E':'#001D3D'}">${fmt(ess,1)}</div></div>`})+howto("The ‘peer mean’ is the weighted average. The effective number of states is how many contribute in practice; under 5, the comparison depends on a handful of states."));
+  const bal=keys.map(k=>{ const before=Math.abs(mean(others.map(r=>r[k]))-focal[k])/(sds[k]||1); const after=Math.abs(others.reduce((s,r,i)=>s+w[i]*r[k],0)-focal[k])/(sds[k]||1); return {label:factorLabel(k).replace(/ \(.*\)$/,''), pts:[{v:before,cls:"navy",hollow:true,tip:"Unweighted: "+fmt(before,2)},{v:after,cls:"peer",tip:"Weighted: "+fmt(after,2)}]}; });
+  const c3=chartBox("Balance before and after weighting", "Standardized gaps between Texas and the (weighted) other states", dotplotSVG({rows:bal, xlab:"|standardized mean difference|", xlo:0, xlines:[{v:0.1,label:"0.10",color:"#2E7D4F"}]})+legend([["navy","Equal weights (hollow)"],["peer","Entropy weights"]])+howto("The weighted gaps should go to zero on the chosen factors; a filled dot still off zero means the solver could not balance that factor exactly, usually because Texas is near the edge of the other states' range on that factor. Unchosen factors can stay unbalanced; the method does not check them."));
+  const pts=rows.map((r,i)=>({x:r[S.x||keys[0]], y:r[ok], cls:r===focal?"focal":"pool", r:r===focal?8:3+14*(i<fi?w[i]:i>fi?w[i-1]:0), tip:`${r.name}: weight ${fmt(i===fi?1:(i<fi?w[i]:w[i-1]),2)}`}));
+  const c4=chartBox("Weights as dot size", `${factorLabel(S.x||keys[0])} vs the outcome; bigger dots have more weight`, scatterSVG({pts, xlab:factorLabel(S.x||keys[0]), ylab:u.outcome.label})+howto("Dot size is the weight. If the large dots all fall on one side of Texas on an unchosen factor, that factor may be driving the gap."));
+  const notes=[...trapNote(),{type:"info", title:"One weighted peer mean", text:"Entropy balancing uses one year of data for every state; it needs no history over time. Report the top-weighted states and the effective number of states next to the gap.", ref:[20,21]}];
+  if(ess<5) notes.push({type:"warn", title:"Too few effective states", text:"The weights concentrate on fewer than five states, so the comparison is fragile. Drop a factor or widen the pool.", ref:[20]});
+  return {charts:[c1,c2,c3,c4], notes, pin:{setup:`Entropy weights: ${keys.length} factors, pool ${S.pool}`, n:Math.round(ess), focal:focal[ok], peer:wm, gap:focal[ok]-wm, smd:null}};
+};
+
+VIEWS.fixedlist = function(){
+  const u=UNITS.state; const ok=u.outcome.key; const rows=DATA.state; const focal=rows.find(r=>r.id==="Texas"); const keys=S.factors.length?S.factors:u.defaultFactors;
+  const list=rows.filter(r=>SF11.includes(r.id)); const pm=mean(list.map(r=>r[ok])); const all=rows.filter(r=>r!==focal);
+  const ranked=[...rows].sort((a,b)=>b[ok]-a[ok]); const rankAll=ranked.indexOf(focal)+1; const rank12=[focal,...list].sort((a,b)=>b[ok]-a[ok]).indexOf(focal)+1;
+  // nearest 11 on the chosen factors
+  const fi=rows.indexOf(focal); const {z}=zscores(rows,keys); const d=distances(z,fi,"mahalanobis"); const near=rows.map((r,i)=>i).filter(i=>i!==fi).sort((a,b)=>d[a]-d[b]).slice(0,11).map(i=>rows[i]);
+  const overlap=list.filter(r=>near.includes(r)).length;
+  const c1=chartBox("Texas among the eleven, and among the nearest eleven", "Outcome index for Texas, the fixed list (blue), and the nearest states not on it (gold)", dotplotSVG({rows:ranked.filter(r=>r===focal||SF11.includes(r.id)||near.includes(r)).map(r=>({label:r.name, bar:r[ok], barColor:r===focal?"#E4573A":SF11.includes(r.id)?"#0C55A5":"#C98F00", pts:[]})), xlab:u.outcome.label, xlo:Math.min(...rows.map(r=>r[ok]))-2, W:560})+legend([["focal","Texas"],["peer","Strategic Framework's eleven"],["gold","Nearest on your factors but off the list"]])+howto("Blue bars are the published fixed list. Gold bars are states that are among the eleven closest to Texas on the factors you chose but are not on the list."));
+  const c2=chartBox("What is the answer?", "Texas against the eleven", gapBlock(focal[ok], list.map(r=>r[ok]), mean(all.map(r=>r[ok])), {peerLabel:"Mean of the eleven", unitLabel:"states", extra:`<div><div class="lab">Rank among 12</div><div class="num">${rank12}</div></div><div><div class="lab">Rank among 50</div><div class="num" style="color:#61686E">${rankAll}</div></div>`})+howto("The Strategic Framework reports ranks among the twelve. The rank among all 50 is the comparison a reader may have in mind instead."));
+  const c3=chartBox("Are the eleven the closest eleven?", `Overlap between the list and the 11 nearest states on ${keys.length} factors`, `<div class="big"><div><div class="lab">States on both</div><div class="num ${overlap<6?'coral':''}">${overlap} / 11</div></div><div class="kv" style="max-width:320px">The published list was chosen on competition for business and talent and on size. Your factors may or may not stand in for those criteria.</div></div>`+barsSVG({items:[{label:"Mean of the eleven",v:pm,color:"#0C55A5"},{label:"Mean of nearest 11",v:mean(near.map(r=>r[ok])),color:"#C98F00"},{label:"Mean of all 49",v:mean(all.map(r=>r[ok])),color:"#8E95A0"}], ylab:u.outcome.label, H:220})+howto("If the two peer means differ, the choice of list changes the answer. Making the factors explicit lets a reader see that."));
+  const bal=balanceChart(focal, list, rows, keys); const c4=chartBox("How close are the eleven on your factors?", "Balance of the fixed list against Texas", bal.svg+legend([["navy","All 49 states"],["peer","The eleven"]]));
+  const notes=[...trapNote(),{type:"info", title:"Current practice", text:"The published list, a Texas policy organization's Strategic Framework, names eleven peer states (CA, CO, FL, GA, IL, NY, NC, OH, PA, VA, WA), chosen by asking which states compete with Texas for business and talent and which are similar in size. The criteria are qualitative and unweighted.", ref:[19]}];
+  if(overlap<6) notes.push({type:"caveat", title:"The list and the factors disagree", text:`Only ${overlap} of the eleven are among the nearest eleven on the factors you chose. Either the factors do not capture the list's criteria, or the list is not the closest set. Report both possibilities.`, ref:[19,3]});
+  notes.push({type:"info", title:"A fixed list is a choice", text:"A fixed, named list is transparent and stable, which is what a public dashboard needs. The other state methods in this simulator check the list against the factors; the list itself stays the published convention.", ref:[19]});
+  return {charts:[c1,c2,c3,c4], notes, pin:{setup:`Fixed list (SF 11), checked on ${keys.length} factors`, n:11, focal:focal[ok], peer:pm, gap:focal[ok]-pm, smd:bal.worst}};
+};
+
+// =====================================================================================
+// NOTES + REFERENCES
+// =====================================================================================
+const REFS = {
+ 1:"Rubin (2001). Using propensity scores to help design observational studies. Health Services and Outcomes Research Methodology 2:169–188.",
+ 2:"Rubin (1980). Bias reduction using Mahalanobis-metric matching. Biometrics 36:293–298.",
+ 3:"Stuart (2010). Matching methods for causal inference: a review and a look forward. Statistical Science 25:1–21.",
+ 4:"Austin (2011). An introduction to propensity score methods. Multivariate Behavioral Research 46:399–424.",
+ 5:"Iacus, King & Porro (2012). Causal inference without balance checking: coarsened exact matching. Political Analysis 20:1–24.",
+ 6:"Texas Education Agency (2024). TAPR campus and district comparison groups. CDC (2015). Community Health Status Indicators peer counties.",
+ 7:"Rosenbaum & Rubin (1983). The central role of the propensity score. Biometrika 70:41–55.",
+ 8:"King & Nielsen (2019). Why propensity scores should not be used for matching. Political Analysis 27:435–454.",
+ 9:"Imbens (2015). Matching methods in practice: three examples. Journal of Human Resources 50:373–419.",
+ 10:"Scott, Bailey & Kienzl (2006). Relative success? Determinants of college graduation rates. Research in Higher Education 47:249–279.",
+ 11:"Booth (2026). peerpick: choose a comparison group for one unit and check how much the choice matters. Stata package, github.com/ericabooth/peerpick-stata-public (help peerpick, Examples).",
+ 12:"U.S. Census Bureau (2020). Understanding and Using ACS Data: What All Data Users Need to Know.",
+ 13:"Berndt & Clifford (1994). Using dynamic time warping to find patterns in time series. AAAI-94 KDD Workshop.",
+ 14:"Caliński & Harabasz (1974). A dendrite method for cluster analysis. Communications in Statistics 3:1–27.",
+ 15:"Everitt, Landau, Leese & Stahl (2011). Cluster Analysis, 5th ed. Wiley.",
+ 16:"Ward (1963). Hierarchical grouping to optimize an objective function. JASA 58:236–244.",
+ 17:"Abadie, Diamond & Hainmueller (2010). Synthetic control methods for comparative case studies. JASA 105:493–505.",
+ 18:"Abadie (2021). Using synthetic controls: feasibility, data requirements, and methodological aspects. Journal of Economic Literature 59:391–425.",
+ 19:"Rodriguez, A.J. (2022, updated 2023). Strategic Framework Guide: How does TX stack up against peer states? Texas 2036.",
+ 20:"Hainmueller (2012). Entropy balancing for causal effects. Political Analysis 20:25–46.",
+ 21:"Hainmueller & Xu (2013). ebalance: a Stata package for entropy balancing. Journal of Statistical Software 54(7).",
+};
+function renderNotes(notes){ const used=new Set(); notes.forEach(n=>(n.ref||[]).forEach(r=>used.add(r)));
+  const card=n=>`<div class="card-note ${n.type==='warn'?'warn':n.type==='caveat'?'caveat':''}"><b>${n.type==='warn'?'⚠ ':n.type==='caveat'?'△ ':'ⓘ '}${esc(n.title)}</b>${n.text}${(n.ref&&n.ref.length)?` <span class="ref">[${n.ref.join(', ')}]</span>`:''}</div>`;
+  const alerts=notes.filter(n=>n.type!=="info"), infos=notes.filter(n=>n.type==="info");
+  $("notes").innerHTML=`<h3>Notes and caveats</h3>`+(alerts.length?alerts.map(card).join(""):'<div class="muted" style="margin:6px 0 10px">No warnings for this setup.</div>')+
+  (infos.length?`<details class="power" id="notesBox" ${S.notesOpen?'open':''}><summary>Method notes (${infos.length})</summary>${infos.map(card).join("")}</details>`:'')+
+  `<details class="power"><summary>References cited</summary><ol class="refs">${[...used].sort((a,b)=>a-b).map(r=>`<li value="${r}">${esc(REFS[r])}</li>`).join("")}</ol></details>`;
+  const nb=$("notesBox"); if(nb) nb.ontoggle=()=>{ S.notesOpen=nb.open; }; }
+
+buildData(); renderLanding();
+// deep link: #unit/question/method opens that scenario directly (e.g. #county/benchmark/knn)
+(function(){ const h=(location.hash||"").replace(/^#/,"").split("/"); if(h.length===3&&UNITS[h[0]]&&QUESTIONS.some(q=>q.key===h[1])){ const mt=METHODS.find(m=>m.key===h[2]); if(mt&&mt.units.includes(h[0])&&mt.qs.includes(h[1])){ S.unit=h[0]; S.q=h[1]; S.method=h[2]; openSim(); } } })();
+window.SIM={S, DATA, VIEWS, METHODS, UNITS, QUESTIONS, openSim, renderSim, renderLanding};  // exposed for scripted tests
+</script>
+</body>
+</html>
