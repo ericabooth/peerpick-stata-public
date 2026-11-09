@@ -10,4 +10,5 @@ if !_rc do build_testdata.do
 else di as txt "raw downloads not present; testing against the shipped data files"
 do test01_methods.do
 do test02_panel_subcommands.do
+do test03_regressions.do
 di as res "peerpick: every test passed"

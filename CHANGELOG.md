@@ -2,6 +2,27 @@
 
 All notable changes to peerpick. Dates are the day the work landed locally.
 
+## 0.1.1 — 2026-11-09
+
+Fixes.
+
+- The `graph` option no longer empties the stored results. In 0.1.0
+  `graph dot` cleared `r()` before it was returned, so `r(gap)`,
+  `r(peers)`, `r(balance)`, and the rest were missing after any call with
+  `graph`.
+- `method(cem)` with `strata()` and no factors now keeps the whole
+  stratum, as the help says, and ignores `k()`. In 0.1.0 it kept an
+  arbitrary 10 units of the stratum, chosen by the sort order.
+- Candidates tied at the same distance are now taken in order of the id
+  in every method that keeps the k nearest, so results no longer depend on
+  the sort order or the Stata version. Untied results are unchanged.
+- String ids that contain spaces (county names, for example) now stay
+  whole: `r(peers)` quotes each id, and `peerpick stability` and the
+  Jaccard overlap in `peerpick spec` work on whole ids. In 0.1.0
+  `stability` split such ids into words, excluded nothing, and reported
+  perfect stability.
+- New `tests/test03_regressions.do` covers each fix.
+
 ## 0.1.0 — 2026-10-20
 
 First release.

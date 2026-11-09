@@ -61,7 +61,7 @@ help peerpick
 | `method()` | Group | Needs |
 |---|---|---|
 | `knn` (default) | the k nearest on the factors; Mahalanobis or standardized Euclidean, optional strata and caliper | factors |
-| `cem` | the focal unit's cell after cutting each factor into quantile bins, then the k nearest inside it | factors or strata |
+| `cem` | the focal unit's cell after cutting each factor into quantile bins, then the k nearest inside it (with strata and no factors, the whole stratum) | factors or strata |
 | `typology` | every unit in the focal unit's stratum | `strata()` |
 | `pscore` | the k units in group 0 nearest the focal unit on a logit index of group membership | factors, `group()` |
 | `predicted` | the k units whose fitted outcome is nearest the focal unit's fitted outcome | factors, `outcome()` |
@@ -72,6 +72,9 @@ help peerpick
 | `synth` | nonnegative donor weights summing to one, fitted to the pre-window outcome path | `time()`, `outcome()`, `pre()` |
 
 The help file describes each one, what it is for, and what it returns.
+Candidates tied at the same distance are taken in order of the id, so the
+group does not depend on the sort order. When a string id contains spaces,
+`r(peers)` holds each id in double quotes.
 
 ## The simulator
 
@@ -96,7 +99,7 @@ cd tests
 do runall.do
 ```
 
-`test01_methods.do` runs every method on the county cross-section and checks the results against hand computations (distances, fitted values, cell membership, weight sums, convex-hull behaviour of the entropy weights, error codes). `test02_panel_subcommands.do` does the same for the two panel methods (the trajectory distance by hand, the synthetic-control fit against equal weights and the best single donor) and for the three subcommands. Both stop at the first failing `assert`.
+`test01_methods.do` runs every method on the county cross-section and checks the results against hand computations (distances, fitted values, cell membership, weight sums, convex-hull behaviour of the entropy weights, error codes). `test02_panel_subcommands.do` does the same for the two panel methods (the trajectory distance by hand, the synthetic-control fit against equal weights and the best single donor) and for the three subcommands. `test03_regressions.do` checks the fixes in 0.1.1 (stored results with `graph`, `cem` on strata alone, tie-breaking by id, and string ids with spaces). Each file stops at the first failing `assert`.
 
 ## Files
 

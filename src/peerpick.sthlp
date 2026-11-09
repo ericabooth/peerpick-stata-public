@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.1.0  20oct2026  Eric Booth}{...}
+{* *! version 0.1.1  09nov2026  Eric Booth}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[MV] cluster kmeans" "help cluster kmeans"}{...}
@@ -180,13 +180,16 @@ correlated factors are not double counted and no factor dominates by having a
 larger scale. With {cmd:distance(euclidean)} each factor is standardized by the
 pool's standard deviation and {opt weights()} can emphasize some factors.
 {opt caliper()} drops candidates beyond a maximum distance, so fewer than {it:k}
-may be returned.{p_end}
+may be returned. In every method that keeps the {it:k} nearest, candidates tied
+at the same distance are taken in order of {it:id}, so the group does not
+depend on how the data happen to be sorted.{p_end}
 
 {pstd}
 {bf:cem}. Coarsened cells: each factor is cut into {opt bins()} quantile bins
 over the pool, and only candidates in the focal unit's bin on every factor are
 eligible; within the cell the {it:k} nearest are kept. With {opt strata()} and
-no factors it is the stratum itself. A small cell is a finding: the focal unit
+no factors it is the stratum itself: every unit in the cell is a peer and
+{opt k()} is ignored, as in {bf:typology}. A small cell is a finding: the focal unit
 has few close matches on those factors at that resolution.{p_end}
 
 {pstd}
@@ -568,7 +571,7 @@ overwritten and restored).{p_end}
 {synopt :{cmd:r(donors)}}, {cmd:r(rmspe_pre)}, {cmd:r(rmspe_post)}, {cmd:r(gap_post)}: donors with positive weight, fit over the window, fit after it, mean post-period gap ({cmd:synth}){p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt :{cmd:r(peers)}}ids of the comparison units{p_end}
+{synopt :{cmd:r(peers)}}ids of the comparison units; when a string {it:id} contains spaces, each id is in double quotes so the list can be read with {cmd:foreach} or passed to {opt peers()}{p_end}
 {synopt :{cmd:r(focal)}}id of the focal unit{p_end}
 {synopt :{cmd:r(method)}}, {cmd:r(distance)}, {cmd:r(factors)}, {cmd:r(strata)}, {cmd:r(id)}, {cmd:r(outcome)}, {cmd:r(generate)}{p_end}
 {synopt :{cmd:r(note)}}a one-line note on the method's result{p_end}

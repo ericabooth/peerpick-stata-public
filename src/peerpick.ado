@@ -1,10 +1,14 @@
-*! version 0.1.0  20oct2026  Eric Booth
+*! version 0.1.1  09nov2026  Eric Booth
 *! peerpick: choose a comparison group for one unit and check how much the
 *! choice matters.  Nearest neighbours (Mahalanobis or standardized Euclidean),
 *! coarsened cells, typology cells, propensity scores, predicted values,
 *! k-means clusters, trajectory distance, synthetic-control weights, entropy
 *! balancing, or a hand-picked list; then balance, specification curves,
 *! placebo gaps, and leave-one-out stability.
+* 0.1.1  09nov2026  graph option no longer empties r(); method(cem) with
+*                   strata() and no factors keeps the whole stratum; ties
+*                   at the k-th distance broken by id; string ids with
+*                   spaces stay whole in r(peers), stability, and spec.
 
 program define peerpick, rclass
     version 16
@@ -35,7 +39,14 @@ program define peerpick, rclass
 
     _pp_core `cmdline'
     if "`display'" == "" _pp_show
-    if "`graph'" != "" _pp_graph, saving(`saving')
+    * graph dot clears r(): hold a copy for the graph, then restore it
+    if "`graph'" != "" {
+        tempname held
+        _return hold `held'
+        _return restore `held', hold
+        _pp_graph, saving(`saving')
+        _return restore `held'
+    }
     return add
 end
 
@@ -285,7 +296,18 @@ program define _pp_core, rclass
     qui replace `generate'_w = . if `generate'_peer != 1
     qui replace `generate'_rank = . if `generate'_peer != 1
     local peerlist ""
-    qui levelsof `id' if `generate'_peer == 1 & `one', local(peerlist) clean
+    if `idstr' {
+        * keep each id whole: quote the list when any id holds a space
+        qui levelsof `id' if `generate'_peer == 1 & `one', local(peerlist)
+        local spaced 0
+        foreach p of local peerlist {
+            if strpos(`"`p'"', " ") local spaced 1
+        }
+        if !`spaced' {
+            qui levelsof `id' if `generate'_peer == 1 & `one', local(peerlist) clean
+        }
+    }
+    else qui levelsof `id' if `generate'_peer == 1 & `one', local(peerlist) clean
 
     * ---- outcome gap --------------------------------------------------
     local haveY = ("`outcome'" != "")
@@ -438,7 +460,7 @@ program define _pp_knn, rclass
     tempvar d
     qui gen double `d' = .
     mata: _pp_distvar("`varlist'", "`cand'", "`focal'", "`d'", "`distance'", "`weights'")
-    _pp_takek `d', cand(`cand') gen(`gen') k(`k') caliper(`caliper')
+    _pp_takek `d', id(`id') cand(`cand') gen(`gen') k(`k') caliper(`caliper')
     return local note `"`r(note)'"'
 end
 
@@ -468,7 +490,9 @@ program define _pp_cem, rclass
         mata: _pp_distvar("`varlist'", "`cell'", "`focal'", "`d'", "`distance'", "`weights'")
     }
     else qui replace `d' = 0 if `cell'
-    _pp_takek `d', cand(`cell') gen(`gen') k(`k') caliper(-1)
+    * with no factors every member of the cell is a peer, as in typology
+    if "`varlist'" != "" _pp_takek `d', id(`id') cand(`cell') gen(`gen') k(`k') caliper(-1)
+    else                 _pp_takek `d', id(`id') cand(`cell') gen(`gen') k(`ncell') caliper(-1)
     return local note "coarsened cell holds `ncell' candidate(s) on `bins' bins per factor"
     return scalar cell_n = `ncell'
     return local extra_scalars cell_n
@@ -488,8 +512,8 @@ program define _pp_typology, rclass
     qui count if `cand'
     local ncell = r(N)
     * every member of the cell is a peer; k() only applies when factors are given
-    if "`varlist'" != "" _pp_takek `d', cand(`cand') gen(`gen') k(`k') caliper(-1)
-    else                 _pp_takek `d', cand(`cand') gen(`gen') k(`ncell') caliper(-1)
+    if "`varlist'" != "" _pp_takek `d', id(`id') cand(`cand') gen(`gen') k(`k') caliper(-1)
+    else                 _pp_takek `d', id(`id') cand(`cand') gen(`gen') k(`ncell') caliper(-1)
     return local note "typology cell holds `ncell' candidate(s)"
     return scalar cell_n = `ncell'
     return local extra_scalars cell_n
@@ -522,7 +546,7 @@ program define _pp_pscore, rclass
     qui summ `xb' if `touse'
     local sdxb = r(sd)
     qui gen double `d' = abs(`xb' - `fxb') / `sdxb' if `cand' & `group' == 0
-    _pp_takek `d', cand(`cand') gen(`gen') k(`k') caliper(`caliper')
+    _pp_takek `d', id(`id') cand(`cand') gen(`gen') k(`k') caliper(`caliper')
     return local note "distance = |logit index - focal index| in SD units; peers drawn from `group' == 0"
     return scalar pscore_focal = invlogit(`fxb')
     return local extra_scalars pscore_focal
@@ -543,7 +567,7 @@ program define _pp_predicted, rclass
     qui summ `res' if `focal', meanonly
     local fres = r(mean)
     qui gen double `d' = abs(`yhat' - `fhat') if `cand'
-    _pp_takek `d', cand(`cand') gen(`gen') k(`k') caliper(-1)
+    _pp_takek `d', id(`id') cand(`cand') gen(`gen') k(`k') caliper(-1)
     qui summ `res' if `gen'_peer == 1, meanonly
     return local note "distance = |fitted outcome - focal fitted|; regression R2 = `: di %5.3f `r2''"
     return scalar r2           = `r2'
@@ -584,7 +608,7 @@ program define _pp_cluster, rclass
         local w `w' 1
     }
     mata: _pp_distvar("`varlist'", "`incl'", "`focal'", "`d'", "euclidean", "`w'")
-    _pp_takek `d', cand(`incl') gen(`gen') k(`n') caliper(-1)
+    _pp_takek `d', id(`id') cand(`incl') gen(`gen') k(`n') caliper(-1)
     cluster drop `cl'
     return local note "focal unit is in cluster `fg' of `nclusters' (k-means on standardized factors, seed `seed'); all members are peers"
     return scalar cluster_n = `n'
@@ -631,7 +655,7 @@ program define _pp_list, rclass
     }
     else qui replace `d' = 0 if `incl'
     qui count if `incl'
-    _pp_takek `d', cand(`incl') gen(`gen') k(`=r(N)') caliper(-1)
+    _pp_takek `d', id(`id') cand(`incl') gen(`gen') k(`=r(N)') caliper(-1)
     return local note "comparison units supplied by hand"
 end
 
@@ -650,7 +674,7 @@ program define _pp_trajectory, rclass
     tempvar one dd
     bysort `id' (`time'): gen byte `one' = (_n == 1)
     qui gen double `dd' = `d' if `one' & `cand'
-    _pp_takek `dd', cand(`cand') gen(`gen') k(`k') caliper(-1)
+    _pp_takek `dd', id(`id') cand(`cand') gen(`gen') k(`k') caliper(-1)
     * spread the flags to every row of the unit
     foreach v in peer w dist rank {
         bysort `id' (`one'): replace `gen'_`v' = `gen'_`v'[_N] if `cand'
@@ -699,11 +723,12 @@ end
 * ---- shared: keep the k nearest candidates by a distance variable ---------
 program define _pp_takek, rclass
     version 16
-    syntax varname, cand(varname) gen(name) k(integer) caliper(real)
+    syntax varname, id(varname) cand(varname) gen(name) k(integer) caliper(real)
     tempvar r
     qui gen double `r' = `varlist' if `cand' & `varlist' < .
     if `caliper' >= 0 qui replace `r' = . if `r' > `caliper'
-    sort `r'
+    * ties at the k-th distance are broken by id, not by the sort order
+    sort `r' `id', stable
     qui gen long `gen'_rank_tmp = _n if `r' < .
     qui replace `gen'_peer = 1 if `gen'_rank_tmp <= `k' & `r' < .
     qui replace `gen'_w    = 1 if `gen'_peer == 1
@@ -1048,7 +1073,10 @@ program define _pp_stability, rclass
     local n 0
     foreach u of local basepeers {
         local uu : subinstr local u `"""' "", all
-        _pp_rebuild, cmd(`"`base'"') drop(exclude generate replace nodisplay graph saving) add(`"exclude(`uu') generate(`gen') replace nodisplay"')
+        * quote the id so a string id with spaces is excluded whole
+        if `idstr' local xq `"exclude(`"`uu'"')"'
+        else       local xq `"exclude(`uu')"'
+        _pp_rebuild, cmd(`"`base'"') drop(exclude generate replace nodisplay graph saving) add(`"`xq' generate(`gen') replace nodisplay"')
         capture qui _pp_core `s(cmd)'
         if _rc continue
         local ++n

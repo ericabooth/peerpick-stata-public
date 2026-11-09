@@ -26,7 +26,7 @@ d
 d Author: Eric Booth
 d Support: email eric.a.booth@gmail.com
 d
-d Distribution-Date: 20261020
+d Distribution-Date: 20261109
 f src/peerpick.ado
 f src/peerpick.sthlp
 f data/tx_counties.dta
@@ -35,4 +35,5 @@ f data/us_states.dta
 f examples/peerpick_examples.do
 f tests/test01_methods.do
 f tests/test02_panel_subcommands.do
+f tests/test03_regressions.do
 f simulator/peer_simulator.html
