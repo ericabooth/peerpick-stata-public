@@ -54,7 +54,7 @@ net get peerpick, from("https://raw.githubusercontent.com/ericabooth/peerpick-st
 help peerpick
 ```
 
-`net get` fetches the three example datasets, the examples do-file, and the test battery. From a local copy of this folder, `net install peerpick, from("/path/to/peerpick")` does the same. Base Stata and Mata, no dependencies; Stata 16 or later.
+`net get` fetches the three example datasets, the examples do-file, and the test battery into the current folder; `do peerpick_examples.do` and the test files run from there as they are. From a local copy of this folder, `net install peerpick, from("/path/to/peerpick")` does the same. Base Stata and Mata, no dependencies; Stata 16 or later.
 
 ## Methods
 
@@ -99,7 +99,7 @@ cd tests
 do runall.do
 ```
 
-`test01_methods.do` runs every method on the county cross-section and checks the results against hand computations (distances, fitted values, cell membership, weight sums, convex-hull behaviour of the entropy weights, error codes). `test02_panel_subcommands.do` does the same for the two panel methods (the trajectory distance by hand, the synthetic-control fit against equal weights and the best single donor) and for the three subcommands. `test03_regressions.do` checks the fixes in 0.1.1 (stored results with `graph`, `cem` on strata alone, tie-breaking by id, and string ids with spaces). Each file stops at the first failing `assert`.
+`test01_methods.do` runs every method on the county cross-section and checks the results against hand computations (distances, fitted values, cell membership, weight sums, convex-hull behaviour of the entropy weights, error codes). `test02_panel_subcommands.do` does the same for the two panel methods (the trajectory distance by hand, the synthetic-control fit against equal weights and the best single donor) and for the three subcommands. `test03_regressions.do` checks the fixes in 0.1.1 (stored results with `graph`, `cem` on strata alone, tie-breaking by id, and string ids with spaces) and 0.1.2 (option abbreviations in the replays, the reported Mahalanobis fallback, and the empty-pool error). Each file stops at the first failing `assert`.
 
 ## Files
 

@@ -1,4 +1,4 @@
-*! version 0.1.1  09nov2026  Eric Booth
+*! version 0.1.2  09nov2026  Eric Booth
 *! peerpick: choose a comparison group for one unit and check how much the
 *! choice matters.  Nearest neighbours (Mahalanobis or standardized Euclidean),
 *! coarsened cells, typology cells, propensity scores, predicted values,
@@ -9,6 +9,10 @@
 *                   strata() and no factors keeps the whole stratum; ties
 *                   at the k-th distance broken by id; string ids with
 *                   spaces stay whole in r(peers), stability, and spec.
+* 0.1.2  09nov2026  the subcommands keep gr() (group()) when they replay a
+*                   call; a Mahalanobis request that falls back to
+*                   Euclidean says so in r(distance) and r(note); an empty
+*                   candidate pool exits 2001 instead of a Mata error.
 
 program define peerpick, rclass
     version 16
@@ -216,6 +220,11 @@ program define _pp_core, rclass
         }
     }
     qui replace `cand' = 0 if `isfocal'
+    qui count if `cand'
+    if r(N) == 0 {
+        di as err "no candidate units: the pool is empty after if/in, strata(), and exclude()"
+        exit 2001
+    }
 
     * ---- generated variables ------------------------------------------
     foreach v in peer w dist rank {
@@ -240,6 +249,8 @@ program define _pp_core, rclass
 
     * ---- dispatch -------------------------------------------------------
     local note ""
+    * _pp_distvar sets this global when Mahalanobis falls back to Euclidean
+    global PEERPICK_distfb ""
     local nfac : word count `factors'
     if "`weights'" != "" {
         local nw : word count `weights'
@@ -266,6 +277,14 @@ program define _pp_core, rclass
     if "`method'" == "trajectory" _pp_trajectory `factors', id(`id') cand(`cand') focal(`isfocal') gen(`generate') k(`k') time(`time') outcome(`outcome') pre(`pre') `growth' weights(`weights')
     if "`method'" == "synth"      _pp_synth      `factors', id(`id') cand(`cand') focal(`isfocal') gen(`generate') time(`time') outcome(`outcome') pre(`pre') post(`post') tolerance(`tolerance') iterate(`iterate')
     local note `"`r(note)'"'
+    if `"$PEERPICK_distfb"' != "" & "`distance'" == "mahalanobis" {
+        * report the distance actually used
+        local fbnote "Mahalanobis distance needs more candidates than factors ($PEERPICK_distfb); standardized Euclidean distance was used"
+        if `"`note'"' == "" local note `"`fbnote'"'
+        else local note `"`note'; `fbnote'"'
+        local distance euclidean
+    }
+    global PEERPICK_distfb ""
     local extra_scalars `r(extra_scalars)'
     foreach s of local extra_scalars {
         local v_`s' = r(`s')
@@ -875,8 +894,19 @@ program define _pp_rebuild, sclass
         if strpos("`tname'", "(") > 0 local tname = substr("`tname'", 1, strpos("`tname'", "(") - 1)
         local hit 0
         foreach d of local drop {
-            if "`tname'" == "`d'" local hit 1
-            else if length("`tname'") >= 2 & substr("`d'", 1, length("`tname'")) == "`tname'" local hit 1
+            * an abbreviation matches only when it is at least as long as
+            * the minimum the peerpick syntax allows (gr() is group(),
+            * not graph); names not listed must be spelled out
+            local minlen = length("`d'")
+            if      "`d'" == "nodisplay"  local minlen 6
+            else if "`d'" == "saving"     local minlen 3
+            else if "`d'" == "focal"      local minlen 3
+            else if "`d'" == "generate"   local minlen 3
+            else if "`d'" == "exclude"    local minlen 4
+            else if "`d'" == "dropfactor" local minlen 5
+            else if "`d'" == "distance"   local minlen 4
+            else if "`d'" == "strata"     local minlen 3
+            if length("`tname'") >= `minlen' & substr("`d'", 1, length("`tname'")) == "`tname'" local hit 1
         }
         if !`hit' local kept `"`kept' `tok'"'
     }
@@ -1160,7 +1190,8 @@ void _pp_distvar(string scalar vars, string scalar cand, string scalar focal,
     real scalar p, j
 
     idx = selectindex(st_data(., cand) :== 1)
-    if (rows(idx) == 0) return
+    // selectindex() of a 1 x 1 matrix with no hit is 1 x 0, not 0 x 1
+    if (length(idx) == 0) return
     X = st_data(idx, vars)
     f = st_data(selectindex(st_data(., focal) :== 1), vars)
     f = f[1, .]
@@ -1174,6 +1205,9 @@ void _pp_distvar(string scalar vars, string scalar cand, string scalar focal,
         d = sqrt(rowsum((D * Si) :* D))
     }
     else {
+        // tell the caller when a Mahalanobis request falls back
+        if (type == "mahalanobis") st_global("PEERPICK_distfb",
+            sprintf("%g candidates, %g factors", rows(X), p))
         sd = sqrt(diagonal(variance(X \ f)))'
         for (j = 1; j <= p; j++) if (sd[j] == 0 | sd[j] == .) sd[j] = 1
         d = sqrt(rowsum(((D :/ sd) :^ 2) :* w))

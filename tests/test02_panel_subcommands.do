@@ -3,8 +3,14 @@
 version 16
 clear all
 set more off
-adopath ++ "`c(pwd)'/../src"
+* repo clone: run from tests/, next to src/ and data/.  After -net get
+* peerpick- the data sit flat in the current folder and peerpick is the
+* installed copy, so use whichever layout is present.
+mata: st_local("havesrc", strofreal(direxists("`c(pwd)'/../src")))
+if `havesrc' adopath ++ "`c(pwd)'/../src"
 local data "`c(pwd)'/../data"
+capture confirm file "`data'/tx_counties.dta"
+if _rc local data "`c(pwd)'"
 capture log close
 log using test02_panel_subcommands.log, replace text
 

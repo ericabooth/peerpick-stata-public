@@ -1,13 +1,18 @@
 * peerpick_examples.do -- the examples from help peerpick, runnable as a script
 *
 * Run from the folder that holds the example data (after -net get peerpick-,
-* that is the current folder), or set the global below to the data folder.
+* that is the current folder), from the examples/ folder of a repo clone
+* (the data are then in ../data), or set the global below to the data folder.
 *
 *   do peerpick_examples.do
 version 16
 clear all
 set more off
-if "$peerpick_data" == "" global peerpick_data "`c(pwd)'/../data"
+if "$peerpick_data" == "" {
+    capture confirm file "`c(pwd)'/tx_counties.dta"
+    if !_rc global peerpick_data "`c(pwd)'"
+    else    global peerpick_data "`c(pwd)'/../data"
+}
 local data "$peerpick_data"
 
 * ---- nearest neighbours within the same metro status -------------------

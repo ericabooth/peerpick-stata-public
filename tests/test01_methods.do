@@ -1,10 +1,17 @@
 * test01_methods.do -- every peerpick method on real data, with checks
-* Run from the tests/ folder.  Stops at the first failing assert.
+* Run from the tests/ folder (or the folder -net get peerpick- filled).
+* Stops at the first failing assert.
 version 16
 clear all
 set more off
-adopath ++ "`c(pwd)'/../src"
+* repo clone: run from tests/, next to src/ and data/.  After -net get
+* peerpick- the data sit flat in the current folder and peerpick is the
+* installed copy, so use whichever layout is present.
+mata: st_local("havesrc", strofreal(direxists("`c(pwd)'/../src")))
+if `havesrc' adopath ++ "`c(pwd)'/../src"
 local data "`c(pwd)'/../data"
+capture confirm file "`data'/tx_counties.dta"
+if _rc local data "`c(pwd)'"
 capture log close
 log using test01_methods.log, replace text
 

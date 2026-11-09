@@ -60,16 +60,16 @@ foreach ser in UR PCPI POP {
         gen str2 state = "`st'"
         keep state year `=lower("`ser'")'
         if `first' {
-            save `acc', replace
+            save `"`acc'"', replace
             local first 0
         }
         else {
-            append using `acc'
-            save `acc', replace
+            append using `"`acc'"'
+            save `"`acc'"', replace
         }
     }
 }
-use `acc', clear
+use `"`acc'"', clear
 collapse (firstnm) ur pcpi pop, by(state year)
 drop if missing(ur) & missing(pcpi) & missing(pop)
 label var ur   "Unemployment rate, annual avg % (BLS via FRED)"

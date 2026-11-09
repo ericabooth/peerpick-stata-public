@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.1.1  09nov2026  Eric Booth}{...}
+{* *! version 0.1.2  09nov2026  Eric Booth}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[MV] cluster kmeans" "help cluster kmeans"}{...}
@@ -284,7 +284,9 @@ factors. Default 10.
 {phang}
 {opt distance(name)} is {cmd:mahalanobis} (default) or {cmd:euclidean}. The
 Mahalanobis distance needs more candidates than factors; with fewer it falls
-back to the standardized Euclidean distance.
+back to the standardized Euclidean distance.  The fallback is reported:
+{cmd:r(distance)} then says {cmd:euclidean} and {cmd:r(note)} (shown in the
+output) says why.
 
 {phang}
 {opt weights(numlist)} gives one positive weight per factor for the Euclidean
@@ -504,7 +506,7 @@ FRED, 2000-2024.{p_end}
 {pstd}{bf:Keep the group and merge it onto another file}{p_end}
 {phang2}{cmd:. keep if inlist(pp_peer, 1, 2)}{p_end}
 {phang2}{cmd:. keep fips5 county_name pp_peer pp_w pp_dist pp_rank}{p_end}
-{phang2}{cmd:. save build/peers_webb_uninsured, replace}{p_end}
+{phang2}{cmd:. save peers_webb_uninsured, replace}{p_end}
 
 
 {marker simulator}{...}
@@ -611,8 +613,8 @@ studies. {it:Political Analysis} 20: 25-46.
 balance checking: Coarsened exact matching. {it:Political Analysis} 20: 1-24.
 {browse "https://doi.org/10.1093/pan/mpr013":doi:10.1093/pan/mpr013}{p_end}
 
-{phang}Lawson, C. L., and R. J. Hanson. 1974. {it:Solving Least Squares
-Problems}. Englewood Cliffs, NJ: Prentice-Hall. Reprinted 1995, Philadelphia:
+{phang}Lawson, C. L., and R. J. Hanson. 1974.
+{it:Solving Least Squares Problems}. Englewood Cliffs, NJ: Prentice-Hall. Reprinted 1995, Philadelphia:
 SIAM. {browse "https://doi.org/10.1137/1.9781611971217":doi:10.1137/1.9781611971217}{p_end}
 
 {phang}Rosenbaum, P. R., and D. B. Rubin. 1985. Constructing a control group
